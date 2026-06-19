@@ -138,9 +138,29 @@ function boot(host){
   host.setAttribute('data-sb-mounted','1');
   host.classList.add('smartboard-embed');
   if(!host.hasAttribute('tabindex')) host.setAttribute('tabindex','0');
-  var h = host.getAttribute('data-height');
-  if(h){ if(/^[0-9]+$/.test(h)) h=h+'px'; host.style.height=h; }
-  else if(!host.style.height){ host.style.height='640px'; }
+  // ---- sizing ----
+  // data-height -> fixed height (number = px, or any CSS length / vh).
+  // otherwise responsive: height follows the post's width via data-aspect
+  // (e.g. '16:9' or '1.6'); defaults to 16:10. Clamped to a sensible range.
+  var fixedH = host.getAttribute('data-height');
+  function parseAspect(a){ if(!a) return 1.6; if(a.indexOf(':')>-1){var p=a.split(':');var r=parseFloat(p[0])/parseFloat(p[1]);return (r>0&&isFinite(r))?r:1.6;} var n=parseFloat(a); return (n>0&&isFinite(n))?n:1.6; }
+  var ASPECT = parseAspect(host.getAttribute('data-aspect'));
+  var MINH = parseInt(host.getAttribute('data-min-height')||'360',10) || 360;
+  var MAXH = parseInt(host.getAttribute('data-max-height')||'0',10) || 0;
+  function applyHeight(){
+    if(fixedH){ var v=fixedH; if(/^[0-9]+$/.test(v)) v=v+'px'; if(host.style.height!==v) host.style.height=v; return; }
+    var w = host.clientWidth || (host.getBoundingClientRect&&host.getBoundingClientRect().width) || 0;
+    if(!w) return;
+    var vh = window.innerHeight || 800;
+    var max = MAXH || Math.min(900, Math.round(vh*0.86));
+    var hgt = Math.max(MINH, Math.min(max, Math.round(w/ASPECT)));
+    var px = hgt+'px';
+    if(host.style.height!==px) host.style.height=px;
+  }
+  applyHeight();
+  // keep height in sync as the column/viewport changes
+  if(window.ResizeObserver){ try{ new ResizeObserver(function(){ applyHeight(); }).observe(host); }catch(_){ } }
+  window.addEventListener('resize', applyHeight);
   host.innerHTML = MARKUP;
   var root = host;
   /* ====================== engine (scoped to root/host) ====================== */
@@ -794,8 +814,12 @@ function toggleShade(){const on=shade.classList.toggle('on');$('#sb-shadebtn').c
 
 /* ============================== web panel ============================== */
 const webEl=$('#sb-web'),iframe=$('#sb-iframe'),urlInp=$('#sb-url'),fb=$('#sb-web-fallback');
+// Google's normal page blocks framing; webhp?igu=1 is the embeddable variant.
+const DEFAULT_URL='https://www.google.com/webhp?igu=1';
 const QUICK=[
-  {n:'Wikipedia',u:'https://en.m.wikipedia.org/wiki/Special:Random'},
+  {n:'Google',u:'https://www.google.com/webhp?igu=1'},
+  {n:'Search',u:'https://duckduckgo.com/'},
+  {n:'Wikipedia',u:'https://en.m.wikipedia.org/wiki/Main_Page'},
   {n:'Dictionary',u:'https://www.thefreedictionary.com/'},
   {n:'Wolfram',u:'https://www.wolframalpha.com/'},
   {n:'Desmos graph',u:'https://www.desmos.com/calculator'},
@@ -804,16 +828,20 @@ const QUICK=[
 ];
 const qWrap=$('#sb-web-quick');
 QUICK.forEach(q=>{const c=document.createElement('button');c.className='sb-chip';c.textContent=q.n;c.addEventListener('click',()=>goURL(q.u));qWrap.appendChild(c);});
-function toggleWeb(){const open=webEl.classList.toggle('open');$('#sb-webbtn').classList.toggle('active',open);}
+let webLoaded=false;
+function toggleWeb(){const open=webEl.classList.toggle('open');$('#sb-webbtn').classList.toggle('active',open);if(open&&!webLoaded){webLoaded=true;goURL(DEFAULT_URL);}}
 $('#sb-web-close').addEventListener('click',toggleWeb);
 function normURL(v){v=v.trim();if(!v)return'';if(/^https?:\/\//i.test(v))return v;if(/^[\w-]+(\.[\w-]+)+/.test(v))return'https://'+v;return'https://duckduckgo.com/?q='+encodeURIComponent(v);}
-let curURL='';
-function goURL(u){u=normURL(u);if(!u)return;curURL=u;urlInp.value=u;fb.classList.remove('show');iframe.style.display='';
+let curURL='', loadOK=false;
+function goURL(u){u=normURL(u);if(!u)return;curURL=u;urlInp.value=u;
+  fb.classList.remove('show');iframe.style.display='';loadOK=false;
   iframe.src=u; clearTimeout(goURL._t);
-  goURL._t=setTimeout(()=>{try{const ok=iframe.contentWindow&&iframe.contentWindow.location.href!=='about:blank';if(!ok)showFB();}catch(_){showFB();}},2500);
+  // Cross-origin frames can't be inspected from here, so we can't detect an
+  // X-Frame-Options refusal. Only show the fallback if NOTHING loads at all.
+  goURL._t=setTimeout(()=>{if(!loadOK)showFB();},8000);
 }
-function showFB(){fb.classList.add('show');iframe.style.display='none';}
-iframe.addEventListener('load',()=>{/* loaded ok */});
+function showFB(){fb.classList.add('show');}
+iframe.addEventListener('load',()=>{loadOK=true;clearTimeout(goURL._t);fb.classList.remove('show');iframe.style.display='';});
 $('#sb-web-go').addEventListener('click',()=>goURL(urlInp.value));
 urlInp.addEventListener('keydown',e=>{if(e.key==='Enter')goURL(urlInp.value);});
 $('#sb-web-newtab').addEventListener('click',()=>{if(curURL)window.open(curURL,'_blank');});
