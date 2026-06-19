@@ -130,6 +130,19 @@ var MARKUP = `
   <input type="file" id="sb-file" accept=".pdf,.ppt,.pptx,image/*" class="sb-hidden">
   <input type="file" id="sb-imgfile" accept="image/*" class="sb-hidden">
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
+
+  <!-- WELCOME -->
+  <div id="sb-welcome">
+    <div id="sb-welcome-card">
+      <div id="sb-welcome-logo">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M5 5v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5"/><path d="M9 19l-1.5 2.5M15 19l1.5 2.5"/><path d="M8.5 12.5l2 2 4.5-5"/></svg>
+      </div>
+      <h1>EduBoard</h1>
+      <p>Professional teaching smartboard</p>
+      <button id="sb-start">Start EduBoard</button>
+      <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
+    </div>
+  </div>
 </div>
 `;
 
@@ -147,7 +160,9 @@ function boot(host){
   var ASPECT = parseAspect(host.getAttribute('data-aspect'));
   var MINH = parseInt(host.getAttribute('data-min-height')||'360',10) || 360;
   var MAXH = parseInt(host.getAttribute('data-max-height')||'0',10) || 0;
+  function isHostFS(){ return (document.fullscreenElement===host)||(document.webkitFullscreenElement===host); }
   function applyHeight(){
+    if(isHostFS()) return;            // in fullscreen the :fullscreen CSS fills the screen
     if(fixedH){ var v=fixedH; if(/^[0-9]+$/.test(v)) v=v+'px'; if(host.style.height!==v) host.style.height=v; return; }
     var w = host.clientWidth || (host.getBoundingClientRect&&host.getBoundingClientRect().width) || 0;
     if(!w) return;
@@ -161,6 +176,10 @@ function boot(host){
   // keep height in sync as the column/viewport changes
   if(window.ResizeObserver){ try{ new ResizeObserver(function(){ applyHeight(); }).observe(host); }catch(_){ } }
   window.addEventListener('resize', applyHeight);
+  // while the board is fullscreen, drop the inline height so it fills the screen; restore on exit
+  function onHostFS(){ if(isHostFS()){ host.style.height=''; } else { applyHeight(); } }
+  document.addEventListener('fullscreenchange', onHostFS);
+  document.addEventListener('webkitfullscreenchange', onHostFS);
   host.innerHTML = MARKUP;
   var root = host;
   /* ====================== engine (scoped to root/host) ====================== */
@@ -656,14 +675,35 @@ function popup(anchor, items){
   return api;
 }
 
-/* ============================== fullscreen ============================== */
+/* ============================== fullscreen & welcome ============================== */
+var fsEl = (typeof host !== 'undefined' && host) ? host : $('#sb-app');
+function enterFS(){
+  var r = fsEl.requestFullscreen ? fsEl.requestFullscreen()
+        : (fsEl.webkitRequestFullscreen ? fsEl.webkitRequestFullscreen() : null);
+  return (r && r.then) ? r : Promise.resolve();
+}
+function exitFS(){
+  if(document.exitFullscreen) return document.exitFullscreen();
+  if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
+}
+function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 $('#sb-full').addEventListener('click',()=>{
-  const fsEl=document.fullscreenElement;
-  if(!fsEl){((host.requestFullscreen?host.requestFullscreen():(host.webkitRequestFullscreen&&host.webkitRequestFullscreen()))||Promise.resolve()).then(()=>setTimeout(resize,80)).catch(()=>{});}
-  else {(document.exitFullscreen?document.exitFullscreen():(document.webkitExitFullscreen&&document.webkitExitFullscreen()));setTimeout(resize,80);}
+  if(!isFS()) enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
+  else exitFS();
 });
-document.addEventListener('fullscreenchange',()=>setTimeout(resize,80));
-document.addEventListener('webkitfullscreenchange',()=>setTimeout(resize,80));
+function onFSchange(){
+  setTimeout(resize,80);
+  if(isFS()) $('#sb-welcome').classList.add('hide');
+  else $('#sb-welcome').classList.remove('hide');   // exiting fullscreen returns to welcome
+}
+document.addEventListener('fullscreenchange', onFSchange);
+document.addEventListener('webkitfullscreenchange', onFSchange);
+$('#sb-start').addEventListener('click',()=>{
+  $('#sb-welcome').classList.add('hide');
+  try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
+  // Start directly in fullscreen; if the browser denies it, keep the board usable.
+  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+});
 
 /* ============================== file open ============================== */
 $('#sb-open').addEventListener('click',()=>$('#sb-file').click());
