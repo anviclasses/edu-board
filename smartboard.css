@@ -164,7 +164,17 @@
   .sb-spin{width:34px;height:34px;border:3px solid var(--edge-2);border-top-color:var(--accent);border-radius:50%;animation:sbspin .8s linear infinite;}
   @keyframes sbspin{to{transform:rotate(360deg);}}
 
-  /* ---------- Responsive — keyed to the BOARD's own size (container queries) ---------- */
+  /* ---------- Responsive — keyed to the BOARD's own size (container queries) ----------
+     Three tiers: desktop/tablet (default) -> compact (<=760px) -> tight phone (<=420px).
+     All floating bars scroll horizontally instead of wrapping, so nothing ever stacks
+     or clips on a narrow board — and every tier keeps panels inside safe-area insets
+     so notches / home-indicators on phones never eat into the controls. */
+
+  #sb-app{
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px);
+  }
+
   /* Narrow board: compact, horizontally-scrollable top & properties bars. */
   @container sb (max-width:760px){
     #sb-top{top:8px; height:46px; gap:1px; padding:4px; max-width:calc(100% - 12px);
@@ -173,17 +183,20 @@
     .sb-brand{padding:0 4px 0 2px;}
     .sb-brand b, .sb-brand span{display:none;}
     .sb-btn .d-lbl{display:none;}
-    .sb-btn{height:40px; min-width:40px; padding:0 7px;}
+    .sb-btn{height:40px; min-width:40px; padding:0 7px; flex:none;}
     .sb-btn svg{width:18px; height:18px;}
-    .sb-sep{height:24px; margin:0 1px;}
-    #sb-pagelbl{min-width:46px;}
+    .sb-sep{height:24px; margin:0 1px; flex:none;}
+    #sb-pagelbl{min-width:46px; flex:none;}
     #sb-props{padding:5px 7px; gap:2px; max-width:calc(100% - 12px);
       overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;}
     #sb-props::-webkit-scrollbar{display:none;}
-    #sb-opacity{width:60px;}
+    #sb-swatches{flex:none;}
+    .sb-sizes{flex:none;}
+    #sb-opacity{width:60px; flex:none;}
     #sb-web{top:54px; bottom:118px; left:6px; right:6px; width:auto; height:auto;}
     #sb-timer{right:6px;}
   }
+
   /* Narrow OR short board: the tall left dock becomes a centred, horizontally
      scrollable strip at the bottom, so it can never be clipped by board height. */
   @container sb (max-width:760px), sb (max-height:540px){
@@ -194,10 +207,44 @@
     .sb-tool{width:44px; height:44px; flex:none;}
     .sb-tool svg{width:21px; height:21px;}
     .sb-tool .tip{display:none;}
-    .sb-dock-sep{width:1px; height:26px; margin:0 3px; align-self:center;}
-    #sb-shapes-menu{left:0; right:auto; top:auto; bottom:calc(100% + 6px); flex-direction:row;}
+    .sb-dock-sep{width:1px; height:26px; margin:0 3px; align-self:center; flex:none;}
+    #sb-shapes-menu{left:0; right:auto; top:auto; bottom:calc(100% + 6px); flex-direction:row;
+      max-width:calc(100% - 12px); overflow-x:auto; scrollbar-width:none;}
+    #sb-shapes-menu::-webkit-scrollbar{display:none;}
     #sb-props{bottom:64px;}
     #sb-timer{bottom:120px;}
+  }
+
+  /* Tight phone tier: shrink everything further so multi-row content still
+     fits one scrollable strip per bar instead of wrapping/clipping. */
+  @container sb (max-width:420px){
+    #sb-top{height:42px; padding:3px; gap:0;}
+    .sb-mark{width:26px; height:26px;}
+    .sb-brand{padding:0 2px;}
+    .sb-btn{height:36px; min-width:36px; padding:0 5px;}
+    .sb-btn svg{width:17px; height:17px;}
+    #sb-pagelbl{min-width:38px; font-size:11.5px;}
+    .sb-tool{width:40px; height:40px;}
+    .sb-tool svg{width:19px; height:19px;}
+    #sb-props{padding:4px 6px; gap:1px;}
+    .sb-swatch{width:22px; height:22px;}
+    #sb-customwrap{width:22px; height:22px;}
+    .sb-size{width:30px; height:30px;}
+    #sb-oplabel{display:none;}
+    #sb-opacity{width:48px;}
+    #sb-web{top:50px; bottom:108px;}
+    #sb-timer{right:4px; bottom:112px; padding:7px 10px; gap:6px;}
+    #sb-timer .t{font-size:21px;}
+    #sb-timer .sb-btn{height:30px; font-size:12px;}
+  }
+
+  /* ---------- Avoid the timer ever sitting under the web-lookup panel ----------
+     Both are floating overlays anchored to the same corner; if a teacher opens
+     the web panel while the timer is already up, slide the timer to the
+     opposite side instead of letting them stack on top of one another. */
+  #sb-app:has(#sb-web.open) #sb-timer{right:auto; left:14px;}
+  @container sb (max-width:760px){
+    #sb-app:has(#sb-web.open) #sb-timer{left:6px;}
   }
 
 /* ===== component host (added for embedding) ===== */
