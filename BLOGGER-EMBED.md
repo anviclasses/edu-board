@@ -97,6 +97,12 @@ in the theme head or included in the gadget as shown above).
 
 ## Notes
 
+- **Welcome screen & fullscreen.** The board opens on a welcome screen with a
+  **Start EduBoard** button. Tapping it enters fullscreen and reveals the board;
+  pressing **Esc** (or the fullscreen button) exits fullscreen and returns to the
+  welcome screen. Your work stays intact behind the welcome screen between
+  sessions. If a browser refuses fullscreen (rare, usually a permissions policy),
+  the board still opens normally in place.
 - **Self-contained & private.** Everything runs in the visitor's browser. No
   server, no accounts, nothing uploaded. Files a teacher imports stay on their
   device.
