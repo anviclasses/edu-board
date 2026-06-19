@@ -103,6 +103,11 @@ in the theme head or included in the gadget as shown above).
 - **Heavy features load on demand.** PDF, PowerPoint, and PDF-export libraries
   are fetched from their CDNs only the first time you use those buttons, so the
   page stays light.
+- **Adaptive toolbars.** The top bar, tool dock, and properties bar resize to
+  the board's own width — not the browser window — so a board in a narrow column
+  or on a phone switches to a compact layout, and the tool dock becomes a
+  horizontally-scrollable strip along the bottom when the board is small, so no
+  buttons are ever clipped.
 - **Keyboard shortcuts** (P/H/E/S/T/V/L/O, Ctrl+Z, etc.) only act after you
   click the board, so they never interfere with typing elsewhere on the page.
 - **Web lookup panel.** Opening it loads Google (via Google's embeddable
