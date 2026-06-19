@@ -171,6 +171,30 @@
   .sb-spin{width:34px;height:34px;border:3px solid var(--edge-2);border-top-color:var(--accent);border-radius:50%;animation:sbspin .8s linear infinite;}
   @keyframes sbspin{to{transform:rotate(360deg);}}
 
+  /* ---------- Welcome ---------- */
+  #sb-welcome{position:absolute; inset:0; z-index:300; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(120% 120% at 50% 0%, #20242c 0%, #15181d 62%, #0f1216 100%);
+    padding:20px; text-align:center; -webkit-user-select:none; user-select:none;}
+  #sb-welcome.hide{display:none;}
+  #sb-welcome-card{max-width:380px; display:flex; flex-direction:column; align-items:center;
+    animation:sb-rise .5s cubic-bezier(.2,.8,.2,1) both;}
+  #sb-welcome-logo{width:82px; height:82px; border-radius:22px; display:flex; align-items:center; justify-content:center;
+    color:var(--accent-ink); background:linear-gradient(160deg,#f7c860,#e6a52e);
+    box-shadow:0 12px 34px rgba(244,183,64,.32); margin-bottom:14px;}
+  #sb-welcome h1{margin:0; font-size:30px; letter-spacing:.4px; color:#fff; font-weight:700;}
+  #sb-welcome p{margin:6px 0 18px; font-size:14px; color:var(--txt-dim);}
+  #sb-start{appearance:none; -webkit-appearance:none; border:0; cursor:pointer; font:inherit; font-size:16px; font-weight:650;
+    color:var(--accent-ink); background:var(--accent); padding:14px 30px; border-radius:13px;
+    box-shadow:0 10px 26px rgba(244,183,64,.3); transition:transform .12s ease, box-shadow .12s ease;}
+  #sb-start:hover{transform:translateY(-1px); box-shadow:0 14px 30px rgba(244,183,64,.42);}
+  #sb-start:active{transform:translateY(0);}
+  #sb-welcome-hint{margin-top:16px; font-size:12px; color:#6b7280;}
+  #sb-welcome-hint b{color:var(--txt-dim); font-weight:600;}
+  @keyframes sb-rise{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
+  @container sb (max-width:760px){
+    #sb-welcome h1{font-size:25px;} #sb-welcome-logo{width:70px;height:70px;}
+  }
+
   /* ---------- Responsive — keyed to the BOARD's own size (container queries) ---------- */
   /* Narrow board: compact, horizontally-scrollable top & properties bars. */
   @container sb (max-width:760px){
@@ -318,6 +342,19 @@
   <input type="file" id="sb-file" accept=".pdf,.ppt,.pptx,image/*" class="sb-hidden">
   <input type="file" id="sb-imgfile" accept="image/*" class="sb-hidden">
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
+
+  <!-- WELCOME -->
+  <div id="sb-welcome">
+    <div id="sb-welcome-card">
+      <div id="sb-welcome-logo">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M5 5v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5"/><path d="M9 19l-1.5 2.5M15 19l1.5 2.5"/><path d="M8.5 12.5l2 2 4.5-5"/></svg>
+      </div>
+      <h1>EduBoard</h1>
+      <p>Professional teaching smartboard</p>
+      <button id="sb-start">Start EduBoard</button>
+      <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
+    </div>
+  </div>
 </div>
 <script>
 "use strict";
@@ -813,10 +850,34 @@ function popup(anchor, items){
   return api;
 }
 
-/* ============================== fullscreen ============================== */
+/* ============================== fullscreen & welcome ============================== */
+var fsEl = (typeof host !== 'undefined' && host) ? host : $('#sb-app');
+function enterFS(){
+  var r = fsEl.requestFullscreen ? fsEl.requestFullscreen()
+        : (fsEl.webkitRequestFullscreen ? fsEl.webkitRequestFullscreen() : null);
+  return (r && r.then) ? r : Promise.resolve();
+}
+function exitFS(){
+  if(document.exitFullscreen) return document.exitFullscreen();
+  if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
+}
+function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 $('#sb-full').addEventListener('click',()=>{
-  if(!document.fullscreenElement)(document.documentElement.requestFullscreen?.()||Promise.resolve()).catch(()=>{});
-  else document.exitFullscreen?.();
+  if(!isFS()) enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
+  else exitFS();
+});
+function onFSchange(){
+  setTimeout(resize,80);
+  if(isFS()) $('#sb-welcome').classList.add('hide');
+  else $('#sb-welcome').classList.remove('hide');   // exiting fullscreen returns to welcome
+}
+document.addEventListener('fullscreenchange', onFSchange);
+document.addEventListener('webkitfullscreenchange', onFSchange);
+$('#sb-start').addEventListener('click',()=>{
+  $('#sb-welcome').classList.add('hide');
+  try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
+  // Start directly in fullscreen; if the browser denies it, keep the board usable.
+  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
 });
 
 /* ============================== file open ============================== */
