@@ -131,6 +131,22 @@ var MARKUP = `
   <input type="file" id="sb-imgfile" accept="image/*" class="sb-hidden">
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
 
+  <!-- FILE PICKER (in-board overlay — keeps fullscreen) -->
+  <div id="sb-picker">
+    <div id="sb-picker-card">
+      <button id="sb-picker-close" class="sb-btn" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h2 id="sb-picker-title">Open file</h2>
+      <div id="sb-drop">
+        <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="sb-drop-main">Drag &amp; drop a file here</div>
+        <div class="sb-drop-or">or</div>
+        <button id="sb-picker-browse">Browse files</button>
+        <div id="sb-picker-accept" class="sb-drop-accept">Accepted: PDF · PowerPoint · Image</div>
+      </div>
+      <div id="sb-pasteHint" class="sb-drop-paste">Tip: you can also paste an image with <b>Ctrl</b>+<b>V</b></div>
+    </div>
+  </div>
+
   <!-- WELCOME -->
   <div id="sb-welcome">
     <div id="sb-welcome-card">
@@ -619,7 +635,7 @@ $('#sb-shapes-menu').querySelectorAll('[data-shape]').forEach(b=>{
 /* tool dots for laser/spotlight/etc colour cue */
 function markActive(id){dock.querySelectorAll('.sb-tool').forEach(b=>{if(!b.dataset.tool)b.classList.remove('active');});if(id)$(id).classList.add('active');}
 $('#sb-shadebtn').addEventListener('click',()=>toggleShade());
-$('#sb-imgbtn').addEventListener('click',()=>pickFile($('#sb-imgfile')));
+$('#sb-imgbtn').addEventListener('click',()=>pickFile('image'));
 $('#sb-webbtn').addEventListener('click',()=>toggleWeb());
 $('#sb-timerbtn').addEventListener('click',()=>toggleTimer());
 $('#sb-clear').addEventListener('click',()=>{if(page().objs.length){pushUndo();page().objs=[];render();toast('Page cleared');}});
@@ -662,7 +678,7 @@ const exMenu=popup($('#sb-export'),[
   {label:'Save page as image',act:()=>{exportPNG();exMenu.hide();}},
   {label:'Export all pages as PDF',act:()=>{exportPDF();exMenu.hide();}},
   {label:'Save board file',act:()=>{saveBoard();exMenu.hide();}},
-  {label:'Open board file',act:()=>{exMenu.hide();pickFile($('#sb-loadfile'));}},
+  {label:'Open board file',act:()=>{exMenu.hide();pickFile('board');}},
 ]);
 
 function popup(anchor, items){
@@ -700,10 +716,29 @@ function onFSchange(){
 }
 document.addEventListener('fullscreenchange', onFSchange);
 document.addEventListener('webkitfullscreenchange', onFSchange);
-// Opening a native file dialog can drop fullscreen on some browsers; suppress the
-// welcome screen during the dialog and re-enter fullscreen once it closes.
+// Opening a native file dialog can drop fullscreen on some browsers. So the file
+// buttons open an in-board overlay (drag-drop / paste keep fullscreen); the native
+// dialog is only used by the explicit "Browse" fallback, with re-enter protection.
 var fileDialogActive=false;
-function pickFile(inp){
+var PICK={
+  file:  {title:'Open file',   accept:'PDF · PowerPoint · Image', inp:'#sb-file',     route:function(f){routeFile(f);}},
+  image: {title:'Place image', accept:'PNG · JPG · GIF · WebP',    inp:'#sb-imgfile',  route:function(f){placeImage(f);}},
+  board: {title:'Open board',  accept:'.smartboard file',         inp:'#sb-loadfile', route:function(f){openBoard(f);}}
+};
+var curPick='file';
+function pickFile(kind){
+  curPick = PICK[kind] ? kind : 'file';
+  var p=PICK[curPick];
+  $('#sb-picker-title').textContent=p.title;
+  $('#sb-picker-accept').textContent='Accepted: '+p.accept;
+  $('#sb-pasteHint').style.display=(curPick==='board')?'none':'';
+  $('#sb-drop').classList.remove('drag');
+  $('#sb-picker').classList.add('open');
+}
+function closePicker(){ $('#sb-picker').classList.remove('open'); }
+function handlePicked(f){ if(!f)return; var p=PICK[curPick]; closePicker(); p.route(f); }
+// native OS dialog fallback — keeps the welcome suppression + re-enters fullscreen
+function nativeBrowse(inp){
   if(!inp) return;
   var wasFS=isFS(), finished=false;
   fileDialogActive=true;
@@ -712,10 +747,7 @@ function pickFile(inp){
     window.removeEventListener('focus',onF,true);
     inp.removeEventListener('change',onC);
     if(wasFS && !isFS()){ enterFS().then(()=>setTimeout(resize,80)).catch(()=>{}); }
-    setTimeout(function(){
-      fileDialogActive=false;
-      if(wasFS && !isFS()) $('#sb-welcome').classList.add('hide'); // never flash welcome after a pick
-    },90);
+    setTimeout(function(){ fileDialogActive=false; if(wasFS && !isFS()) $('#sb-welcome').classList.add('hide'); },90);
   }
   function onC(){ fin(); }
   function onF(){ fin(); }
@@ -723,6 +755,36 @@ function pickFile(inp){
   setTimeout(function(){ window.addEventListener('focus',onF,true); },0);
   inp.click();
 }
+/* picker overlay wiring */
+(function(){
+  var pk=$('#sb-picker'), drop=$('#sb-drop');
+  $('#sb-picker-close').addEventListener('click',closePicker);
+  pk.addEventListener('click',e=>{ if(e.target===pk) closePicker(); });
+  $('#sb-picker-browse').addEventListener('click',()=>nativeBrowse($(PICK[curPick].inp)));
+  ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('drag');}));
+  ['dragleave','dragend'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');}));
+  drop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)handlePicked(f);});
+  pk.addEventListener('dragover',e=>{e.preventDefault();});
+  pk.addEventListener('drop',e=>{e.preventDefault();var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)handlePicked(f);});
+  document.addEventListener('paste',e=>{
+    if(!pk.classList.contains('open')||curPick==='board')return;
+    var items=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<items.length;i++){ if(items[i].type&&items[i].type.indexOf('image')===0){ var f=items[i].getAsFile(); if(f){e.preventDefault();handlePicked(f);return;} } }
+  });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pk.classList.contains('open'))closePicker(); });
+})();
+/* drop a file anywhere on the board to open it (no dialog, stays fullscreen) */
+(function(){
+  var app=$('#sb-app');
+  app.addEventListener('dragover',e=>{ var t=e.dataTransfer&&e.dataTransfer.types; if(t&&Array.prototype.indexOf.call(t,'Files')>-1) e.preventDefault(); });
+  app.addEventListener('drop',e=>{
+    if($('#sb-picker').classList.contains('open'))return;
+    var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f)return;
+    e.preventDefault();
+    var n=(f.name||'').toLowerCase();
+    if(n.endsWith('.smartboard')||n.endsWith('.json')) openBoard(f); else routeFile(f);
+  });
+})();
 $('#sb-start').addEventListener('click',()=>{
   $('#sb-welcome').classList.add('hide');
   try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
@@ -731,10 +793,10 @@ $('#sb-start').addEventListener('click',()=>{
 });
 
 /* ============================== file open ============================== */
-$('#sb-open').addEventListener('click',()=>pickFile($('#sb-file')));
-$('#sb-file').addEventListener('change',e=>{const f=e.target.files[0];if(f)routeFile(f);e.target.value='';});
-$('#sb-imgfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)placeImage(f);e.target.value='';});
-$('#sb-loadfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)openBoard(f);e.target.value='';});
+$('#sb-open').addEventListener('click',()=>pickFile('file'));
+$('#sb-file').addEventListener('change',e=>{const f=e.target.files[0];if(f)routeFile(f);closePicker();e.target.value='';});
+$('#sb-imgfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)placeImage(f);closePicker();e.target.value='';});
+$('#sb-loadfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)openBoard(f);closePicker();e.target.value='';});
 
 function routeFile(f){
   const n=f.name.toLowerCase();
@@ -957,7 +1019,7 @@ function hideLoad(){loadEl.classList.remove('show');}
 /* ============================== boot ============================== */
 resize(); updatePageLbl(); updateUndo(); setTool('pen');
 // expose minimal API for embedders
-var _api={ open:()=>pickFile($('#sb-file')), addPage:()=>$('#sb-addpage').click(), root:root, host:host };
+var _api={ open:()=>pickFile('file'), addPage:()=>$('#sb-addpage').click(), root:root, host:host };
 window.Smartboard=window.Smartboard||{};window.Smartboard.open=_api.open;window.Smartboard.addPage=_api.addPage;(window.Smartboard._instances=window.Smartboard._instances||[]).push(_api);
   /* ==================== end engine ==================== */
 }
