@@ -37,17 +37,33 @@ Open a post or page, switch the editor to **HTML view** (the `<>` / *HTML*
 toggle), and paste this where you want the board to appear:
 
 ```html
-<div class="smartboard-embed" data-height="640"></div>
+<div class="smartboard-embed"></div>
 ```
 
 Switch back to Compose, then **Preview** or **Publish**. That's it — the board
 builds itself inside that `<div>`.
 
-Change the height with `data-height` (a number is treated as pixels):
+**Sizing is responsive by default.** With no `data-height`, the board's height
+follows the width of your Blogger post column (16:10 by default), so it adapts to
+any theme width and to phones automatically. You can tune it:
 
 ```html
-<div class="smartboard-embed" data-height="720"></div>
+<!-- Responsive, 16:9 instead of the default 16:10 -->
+<div class="smartboard-embed" data-aspect="16:9"></div>
+
+<!-- Responsive, but never shorter than 480px -->
+<div class="smartboard-embed" data-min-height="480"></div>
+
+<!-- Fixed height (old behaviour), a number is treated as pixels -->
+<div class="smartboard-embed" data-height="640"></div>
 ```
+
+| Attribute | Meaning |
+|-----------|---------|
+| *(none)* | Responsive height = width ÷ 1.6 (16:10), clamped 360px–~86% of screen |
+| `data-aspect="16:9"` or `data-aspect="1.6"` | Responsive with your width-to-height ratio |
+| `data-min-height` / `data-max-height` | Clamp limits in px for responsive mode |
+| `data-height="640"` | Fixed height (px or any CSS length / `vh`) |
 
 You can place more than one board on different pages; one board per page is
 recommended.
@@ -89,6 +105,15 @@ in the theme head or included in the gadget as shown above).
   page stays light.
 - **Keyboard shortcuts** (P/H/E/S/T/V/L/O, Ctrl+Z, etc.) only act after you
   click the board, so they never interfere with typing elsewhere on the page.
+- **Web lookup panel.** Opening it loads Google (via Google's embeddable
+  `webhp?igu=1` page) plus quick links (Google, a privacy search, Wikipedia,
+  dictionary, Wolfram, Desmos, periodic table, maps). Type any URL or search
+  term in the bar. **Browsers forbid many sites from loading inside any embedded
+  frame** (Google's normal page, YouTube watch pages, banking, etc.) — a
+  security rule no website can bypass from the page side. When a site refuses,
+  use the **Open in new tab ↗** button in the panel header. If Google's
+  embeddable page is ever blocked on your network, the privacy-search and
+  Wikipedia links frame reliably.
 - **Fullscreen** expands just the board.
 - **PowerPoint** import is best-effort; for reliable results convert slides to
   PDF first and use the PDF import.
@@ -102,5 +127,5 @@ in the theme head or included in the gadget as shown above).
 | Where | What to paste |
 |-------|----------------|
 | Theme `<head>` (once) | the `<link>` + `<script>` library tags |
-| Post / page (HTML view) | `<div class="smartboard-embed" data-height="640"></div>` |
+| Post / page (HTML view) | `<div class="smartboard-embed"></div>` (responsive) |
 | No theme access | the `<div>` **plus** the `<script>` tag, together in the post |
