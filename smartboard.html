@@ -949,8 +949,12 @@ function toggleShade(){const on=shade.classList.toggle('on');$('#sb-shadebtn').c
 
 /* ============================== web panel ============================== */
 const webEl=$('#sb-web'),iframe=$('#sb-iframe'),urlInp=$('#sb-url'),fb=$('#sb-web-fallback');
+// Google's normal page blocks framing; webhp?igu=1 is the embeddable variant.
+const DEFAULT_URL='https://www.google.com/webhp?igu=1';
 const QUICK=[
-  {n:'Wikipedia',u:'https://en.m.wikipedia.org/wiki/Special:Random'},
+  {n:'Google',u:'https://www.google.com/webhp?igu=1'},
+  {n:'Search',u:'https://duckduckgo.com/'},
+  {n:'Wikipedia',u:'https://en.m.wikipedia.org/wiki/Main_Page'},
   {n:'Dictionary',u:'https://www.thefreedictionary.com/'},
   {n:'Wolfram',u:'https://www.wolframalpha.com/'},
   {n:'Desmos graph',u:'https://www.desmos.com/calculator'},
@@ -959,16 +963,20 @@ const QUICK=[
 ];
 const qWrap=$('#sb-web-quick');
 QUICK.forEach(q=>{const c=document.createElement('button');c.className='sb-chip';c.textContent=q.n;c.addEventListener('click',()=>goURL(q.u));qWrap.appendChild(c);});
-function toggleWeb(){const open=webEl.classList.toggle('open');$('#sb-webbtn').classList.toggle('active',open);}
+let webLoaded=false;
+function toggleWeb(){const open=webEl.classList.toggle('open');$('#sb-webbtn').classList.toggle('active',open);if(open&&!webLoaded){webLoaded=true;goURL(DEFAULT_URL);}}
 $('#sb-web-close').addEventListener('click',toggleWeb);
 function normURL(v){v=v.trim();if(!v)return'';if(/^https?:\/\//i.test(v))return v;if(/^[\w-]+(\.[\w-]+)+/.test(v))return'https://'+v;return'https://duckduckgo.com/?q='+encodeURIComponent(v);}
-let curURL='';
-function goURL(u){u=normURL(u);if(!u)return;curURL=u;urlInp.value=u;fb.classList.remove('show');iframe.style.display='';
+let curURL='', loadOK=false;
+function goURL(u){u=normURL(u);if(!u)return;curURL=u;urlInp.value=u;
+  fb.classList.remove('show');iframe.style.display='';loadOK=false;
   iframe.src=u; clearTimeout(goURL._t);
-  goURL._t=setTimeout(()=>{try{const ok=iframe.contentWindow&&iframe.contentWindow.location.href!=='about:blank';if(!ok)showFB();}catch(_){showFB();}},2500);
+  // Cross-origin frames can't be inspected from here, so we can't detect an
+  // X-Frame-Options refusal. Only show the fallback if NOTHING loads at all.
+  goURL._t=setTimeout(()=>{if(!loadOK)showFB();},8000);
 }
-function showFB(){fb.classList.add('show');iframe.style.display='none';}
-iframe.addEventListener('load',()=>{/* loaded ok */});
+function showFB(){fb.classList.add('show');}
+iframe.addEventListener('load',()=>{loadOK=true;clearTimeout(goURL._t);fb.classList.remove('show');iframe.style.display='';});
 $('#sb-web-go').addEventListener('click',()=>goURL(urlInp.value));
 urlInp.addEventListener('keydown',e=>{if(e.key==='Enter')goURL(urlInp.value);});
 $('#sb-web-newtab').addEventListener('click',()=>{if(curURL)window.open(curURL,'_blank');});
