@@ -15,6 +15,7 @@
     color:var(--txt); user-select:none; -webkit-user-select:none; touch-action:none;
   }
   #sb-app{position:absolute; inset:0; display:flex; flex-direction:column;}
+  #sb-app{container-type:inline-size; container-name:sb;}
 
   /* ---------- Board ---------- */
   #sb-board-wrap{position:absolute; inset:0; background:#3a4049; overflow:hidden;}
@@ -163,22 +164,40 @@
   .sb-spin{width:34px;height:34px;border:3px solid var(--edge-2);border-top-color:var(--accent);border-radius:50%;animation:sbspin .8s linear infinite;}
   @keyframes sbspin{to{transform:rotate(360deg);}}
 
-  /* ---------- Responsive ---------- */
-  @media (max-width:760px){
-    #sb-top{top:8px;height:48px;gap:2px;padding:5px;}
-    .sb-brand span{display:none;}
-    .sb-brand b{font-size:12.5px;}
-    #sb-dock{left:8px;gap:2px;padding:5px;}
-    .sb-tool{width:42px;height:42px;}
-    .sb-tool svg{width:20px;height:20px;}
-    .sb-tool .tip{display:none;}
-    #sb-props{bottom:10px;padding:6px;gap:2px;overflow-x:auto;flex-wrap:nowrap;}
-    #sb-opacity{width:54px;}
-    #sb-web{top:64px;height:min(70vh,520px);}
+  /* ---------- Responsive — keyed to the BOARD's own size (container queries) ---------- */
+  /* Narrow board: compact, horizontally-scrollable top & properties bars. */
+  @container sb (max-width:760px){
+    #sb-top{top:8px; height:46px; gap:1px; padding:4px; max-width:calc(100% - 12px);
+      overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; justify-content:flex-start; scrollbar-width:none;}
+    #sb-top::-webkit-scrollbar{display:none;}
+    .sb-brand{padding:0 4px 0 2px;}
+    .sb-brand b, .sb-brand span{display:none;}
+    .sb-btn .d-lbl{display:none;}
+    .sb-btn{height:40px; min-width:40px; padding:0 7px;}
+    .sb-btn svg{width:18px; height:18px;}
+    .sb-sep{height:24px; margin:0 1px;}
+    #sb-pagelbl{min-width:46px;}
+    #sb-props{padding:5px 7px; gap:2px; max-width:calc(100% - 12px);
+      overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;}
+    #sb-props::-webkit-scrollbar{display:none;}
+    #sb-opacity{width:60px;}
+    #sb-web{top:54px; bottom:118px; left:6px; right:6px; width:auto; height:auto;}
+    #sb-timer{right:6px;}
   }
-  @media (max-width:760px) and (orientation:landscape){
-    #sb-dock{flex-direction:row;left:50%;top:auto;bottom:8px;transform:translateX(-50%);}
-    #sb-props{bottom:62px;}
+  /* Narrow OR short board: the tall left dock becomes a centred, horizontally
+     scrollable strip at the bottom, so it can never be clipped by board height. */
+  @container sb (max-width:760px), sb (max-height:540px){
+    #sb-dock{left:50%; right:auto; top:auto; bottom:8px; transform:translateX(-50%);
+      flex-direction:row; gap:2px; padding:5px; max-width:calc(100% - 12px);
+      overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;}
+    #sb-dock::-webkit-scrollbar{display:none;}
+    .sb-tool{width:44px; height:44px; flex:none;}
+    .sb-tool svg{width:21px; height:21px;}
+    .sb-tool .tip{display:none;}
+    .sb-dock-sep{width:1px; height:26px; margin:0 3px; align-self:center;}
+    #sb-shapes-menu{left:0; right:auto; top:auto; bottom:calc(100% + 6px); flex-direction:row;}
+    #sb-props{bottom:64px;}
+    #sb-timer{bottom:120px;}
   }
 
 /* ===== component host (added for embedding) ===== */
