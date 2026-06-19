@@ -97,6 +97,12 @@ in the theme head or included in the gadget as shown above).
 
 ## Notes
 
+- **Opening files stays in fullscreen.** The Open file, Place image, and Open
+  board buttons show an in-board picker overlay. Drag-and-drop a file onto it (or
+  paste an image with Ctrl+V) and it loads without ever leaving fullscreen. You
+  can also drop a file anywhere on the board. A **Browse files** button is there
+  as a fallback; it uses the operating system's file dialog, which on some
+  browsers briefly leaves fullscreen and is then restored automatically.
 - **Welcome screen & fullscreen.** The board opens on a welcome screen with a
   **Start EduBoard** button. Tapping it enters fullscreen and reveals the board;
   pressing **Esc** (or the fullscreen button) exits fullscreen and returns to the
