@@ -627,6 +627,7 @@ function setTool(t){
   $('#sb-props').style.display=showProps?'flex':'none';
   const showOpacity=(t==='marker');
   $('#sb-opacity').style.display=showOpacity?'':'none';$('#sb-oplabel').style.display=showOpacity?'':'none';$('#sb-opsep').style.display=showOpacity?'':'none';
+  $('#sb-props').scrollLeft=0;
   cv.style.cursor = t==='select'?'default' : (t==='text'?'text':'crosshair');
   if(t!=='spotlight')lastPointer=lastPointer; // keep
 }
