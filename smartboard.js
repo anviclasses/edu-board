@@ -39,9 +39,7 @@ var MARKUP = `
       <div class="sb-mark">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v11H3z"/><path d="M8 20h8M12 16v4"/></svg>
       </div>
-      <div><b>Smartboard</b><span>Teaching canvas</span></div>
     </div>
-    <div class="sb-sep"></div>
     <div class="sb-sep"></div>
     <button class="sb-btn" id="sb-prev" title="Previous page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div id="sb-pagelbl">1 / 1</div>
@@ -127,6 +125,7 @@ var MARKUP = `
   </div>
 
   <div id="sb-toast"></div>
+  <div id="sb-barshint">Double-tap the board to show toolbars</div>
   <div id="sb-load"><div class="sb-spin"></div><div id="sb-load-txt">Loading…</div></div>
 
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
@@ -211,6 +210,7 @@ const $=s=>root.querySelector(s);
 const wrap=$('#sb-board-wrap'), cv=$('#sb-canvas'), ov=$('#sb-overlay');
 const ctx=cv.getContext('2d'), octx=ov.getContext('2d');
 const hint=$('#sb-hint'), toastEl=$('#sb-toast'), loadEl=$('#sb-load'), loadTxt=$('#sb-load-txt');
+const barsHintEl=$('#sb-barshint');
 const ta=$('#sb-textedit');
 
 /* ============================== state ============================== */
@@ -460,6 +460,7 @@ function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').dis
 const pointers=new Map();
 let drawId=null, gesturing=false, gLast=null;
 let startPt=null, panStart=null, moveOff=null, resizing=false;
+let lastTrivialTap=null; // {t, obj} — set when a pen/marker tap left only a trivial dot, so a following double-tap can retract it
 
 function pressure(e){if(e.pointerType==='mouse'||!e.pressure)return 0.5;return e.pressure;}
 
@@ -532,7 +533,11 @@ function endPointer(e){
   if(e.pointerId!==drawId)return;
   drawId=null;
   if(panStart){panStart=null;return;}
-  if((tool==='pen'||tool==='marker')&&live){pushUndo();page().objs.push(live);live=null;render();}
+  if((tool==='pen'||tool==='marker')&&live){
+    const isTrivialDot = live.pts.length<2 || live.pts.every(p=>Math.hypot(p.x-live.pts[0].x,p.y-live.pts[0].y)<1.5);
+    pushUndo(); page().objs.push(live); live=null; render();
+    lastTrivialTap = isTrivialDot ? {t:performance.now(), obj:page().objs[page().objs.length-1]} : null;
+  }
   else if(tool==='shape'&&live){
     if(Math.hypot(live.x2-live.x1,live.y2-live.y1)>3){pushUndo();page().objs.push(live);}
     live=null;render();
@@ -628,6 +633,7 @@ function setTool(t){
   const showOpacity=(t==='marker');
   $('#sb-opacity').style.display=showOpacity?'':'none';$('#sb-oplabel').style.display=showOpacity?'':'none';$('#sb-opsep').style.display=showOpacity?'':'none';
   $('#sb-props').scrollLeft=0;
+  if(typeof applyBarsVisible==='function') applyBarsVisible();
   cv.style.cursor = t==='select'?'default' : (t==='text'?'text':'crosshair');
   if(t!=='spotlight')lastPointer=lastPointer; // keep
 }
@@ -1011,6 +1017,93 @@ $('#sb-timer-close').addEventListener('click',toggleTimer);
 $('#sb-timer-start').addEventListener('click',e=>{tRun=!tRun;e.target.textContent=tRun?'Pause':'Start';e.target.style.background=tRun?'var(--accent)':'var(--good)';
   if(tRun){tInt=setInterval(()=>{tSec++;tT.textContent=fmt(tSec);},1000);}else clearInterval(tInt);});
 $('#sb-timer-reset').addEventListener('click',()=>{clearInterval(tInt);tRun=false;tSec=0;tT.textContent='00:00';$('#sb-timer-start').textContent='Start';$('#sb-timer-start').style.background='var(--good)';});
+
+/* ============================== toolbar show / hide ============================== */
+// Double-tap (or double-click) the board toggles the top bar, tool dock, and
+// properties bar. They also auto-hide after 5s of inactivity to keep the
+// board clear, and reappear instantly on the next interaction.
+const barEls=[$('#sb-top'),$('#sb-dock'),$('#sb-props')];
+let barsVisible=true, barsAutoHideT=null, barsHintT=null, barsHintShown=false;
+
+function applyBarsVisible(){
+  // Properties bar should only ever reappear if the active tool actually uses it.
+  const propsWanted=['pen','marker','shape','text','eraser'].includes(tool);
+  barEls.forEach(el=>{
+    if(!el)return;
+    const wantedVisible = barsVisible && (el.id!=='sb-props' || propsWanted);
+    el.classList.toggle('sb-bars-hidden',!wantedVisible);
+  });
+}
+function showBarsHintOnce(){
+  if(barsHintShown)return; barsHintShown=true;
+  barsHintEl.classList.add('show');
+  clearTimeout(barsHintT); barsHintT=setTimeout(()=>barsHintEl.classList.remove('show'),2400);
+}
+function setBarsVisible(v){
+  barsVisible=v; applyBarsVisible();
+  if(!v) showBarsHintOnce(); else barsHintEl.classList.remove('show');
+}
+function toggleBars(){ setBarsVisible(!barsVisible); }
+function scheduleAutoHide(){
+  clearTimeout(barsAutoHideT);
+  if(!barsVisible)return;
+  barsAutoHideT=setTimeout(()=>setBarsVisible(false),5000);
+}
+function bumpBarsActivity(){
+  // Any meaningful interaction keeps the bars visible and resets the 5s clock.
+  if(!barsVisible) setBarsVisible(true); else scheduleAutoHide();
+}
+scheduleAutoHide();
+
+// Manual two-tap detection on the canvas (works for mouse, touch, and pen,
+// and avoids fighting the existing dblclick-to-edit-text behaviour below).
+let lastTapT=0, lastTapX=0, lastTapY=0, loneTapT=null;
+const DBLTAP_MS=320, DBLTAP_PX=28;
+cv.addEventListener('pointerdown',e=>{
+  const now=performance.now();
+  const dx=e.clientX-lastTapX, dy=e.clientY-lastTapY;
+  const isDblTap = now-lastTapT<DBLTAP_MS && Math.hypot(dx,dy)<DBLTAP_PX;
+  if(isDblTap){
+    clearTimeout(loneTapT); // the pending lone-tap turned out to be tap 1 of this pair — cancel it
+    lastTapT=0; // consume — don't chain into a triple-tap re-trigger
+    // Let an existing double-click-to-edit-text (on a hit text object, in
+    // select mode) take priority over the show/hide toggle.
+    const editingText = tool==='select' && selectHit(boardPt(e).x,boardPt(e).y)?.t==='text';
+    if(editingText) return;
+    // Tap 1 of this pair may have already committed a trivial dot (pen/
+    // marker tools draw on pointerdown/up). Retract it so double-tapping
+    // to toggle the toolbars never leaves an accidental mark behind.
+    if(lastTrivialTap && performance.now()-lastTrivialTap.t<DBLTAP_MS+50 &&
+       page().objs[page().objs.length-1]===lastTrivialTap.obj){
+      undo(); lastTrivialTap=null;
+    }
+    toggleBars();
+    // Prevent this second tap from also starting a stroke/shape/text box —
+    // it's a UI gesture, not a drawing action.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  } else {
+    lastTapT=now; lastTapX=e.clientX; lastTapY=e.clientY;
+    // A lone tap (not part of a double-tap) still counts as activity: if
+    // bars are hidden it brings them back, otherwise it resets the 5s
+    // clock. Defer past the double-tap window first — otherwise this tap
+    // (as tap 1 of a pair) would show the bars right before tap 2 arrives
+    // and immediately toggles them back off again.
+    clearTimeout(loneTapT);
+    loneTapT=setTimeout(bumpBarsActivity,DBLTAP_MS+20);
+  }
+},{capture:true});
+
+// Real drawing/navigation activity (an actual stroke, pan, zoom, or key
+// press) always keeps the bars visible immediately and resets the 5s clock.
+// Note: pointermove only counts while something is actively happening
+// (drawing/panning/gesturing) — plain hover/repositioning must NOT bump
+// activity, both because hovering isn't "use" and because it would race
+// the double-tap toggle (a mouse always moves into position before a click).
+cv.addEventListener('pointermove',e=>{ if(drawId!==null||panStart||gesturing) bumpBarsActivity(); },{passive:true});
+cv.addEventListener('wheel',bumpBarsActivity,{passive:true});
+host.addEventListener('keydown',bumpBarsActivity);
+barEls.forEach(el=>{ if(el) el.addEventListener('pointerdown',bumpBarsActivity); });
 
 /* ============================== keyboard ============================== */
 let spaceDown=false;
