@@ -35,7 +35,10 @@
     position:absolute; top:12px; left:50%; transform:translateX(-50%);
     display:flex; align-items:center; gap:6px; padding:6px; z-index:40;
     max-width:calc(100% - 24px); height:54px;
+    overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
   }
+  #sb-top::-webkit-scrollbar{display:none;}
   .sb-brand{display:flex;align-items:center;gap:9px;padding:0 12px 0 6px;color:var(--txt);}
   .sb-mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#E89C1F);
     display:grid;place-items:center;color:var(--accent-ink);flex:none;box-shadow:0 2px 8px rgba(244,183,64,.35);}
@@ -60,7 +63,10 @@
   #sb-dock{
     position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
     display:flex; flex-direction:row; gap:4px; padding:7px; z-index:40; max-width:calc(100% - 24px);
+    overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
   }
+  #sb-dock::-webkit-scrollbar{display:none;}
   .sb-tool{
     width:46px;height:46px;border:0;border-radius:12px;background:transparent;color:var(--txt);
     display:grid;place-items:center;cursor:pointer;position:relative;transition:background .14s,color .14s,transform .06s;
@@ -83,7 +89,11 @@
   #sb-props{
     position:absolute; left:50%; bottom:82px; transform:translateX(-50%);
     display:flex; flex-direction:row; align-items:center; gap:4px; padding:7px 9px; z-index:40; max-width:calc(100% - 24px);
+    overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
   }
+  #sb-props::-webkit-scrollbar{display:none;}
+  #sb-props > *{flex:none;}
   #sb-swatches{flex-direction:row;}
   #sb-props .sb-sep{width:1px;height:28px;margin:0 2px;}
   .sb-swatch{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;position:relative;transition:transform .1s;flex:none;}
@@ -99,7 +109,8 @@
   .sb-size:hover{background:rgba(255,255,255,.08);}
   .sb-size.active{background:rgba(255,255,255,.14);}
   .sb-size i{display:block;border-radius:50%;background:currentColor;color:var(--txt);}
-  #sb-opacity{accent-color:var(--accent);width:80px;}
+  #sb-opacity{accent-color:var(--accent);width:80px;min-width:80px;flex:none;}
+  #sb-oplabel{flex:none;white-space:nowrap;}
 
   /* shapes flyout — opens upward above the bottom dock */
   #sb-shapes-menu{position:absolute;left:0;bottom:calc(100% + 64px);display:none;flex-direction:row;gap:2px;padding:6px;z-index:50;}
@@ -224,11 +235,9 @@
   }
 
   /* ---------- Responsive — keyed to the BOARD's own size (container queries) ---------- */
-  /* Narrow board: compact, horizontally-scrollable top bar & bottom dock. */
+  /* Narrow board: compact top bar & bottom dock (horizontal scroll is always on, see base rules above). */
   @container sb (max-width:760px){
-    #sb-top{top:8px; height:46px; gap:1px; padding:4px; max-width:calc(100% - 12px);
-      overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; justify-content:flex-start; scrollbar-width:none;}
-    #sb-top::-webkit-scrollbar{display:none;}
+    #sb-top{top:8px; height:46px; gap:1px; padding:4px; max-width:calc(100% - 12px); justify-content:flex-start;}
     .sb-brand{padding:0 4px 0 2px;}
     .sb-brand b, .sb-brand span{display:none;}
     .sb-btn .d-lbl{display:none;}
@@ -236,9 +245,7 @@
     .sb-btn svg{width:18px; height:18px;}
     .sb-sep{height:24px; margin:0 1px;}
     #sb-pagelbl{min-width:46px;}
-    #sb-dock{padding:5px 7px; gap:2px; max-width:calc(100% - 12px);
-      overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;}
-    #sb-dock::-webkit-scrollbar{display:none;}
+    #sb-dock{padding:5px 7px; gap:2px; max-width:calc(100% - 12px);}
     .sb-tool{width:42px; height:42px; flex:none;}
     .sb-tool svg{width:20px; height:20px;}
     .sb-dock-sep{height:26px; margin:0 3px;}
@@ -248,11 +255,9 @@
   /* Narrow OR short board: compact the properties bar (still sitting just
      above the dock) so it never gets clipped or overflows on small screens. */
   @container sb (max-width:760px), sb (max-height:540px){
-    #sb-props{bottom:74px; gap:2px; padding:5px 7px; max-width:calc(100% - 12px);
-      overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;}
-    #sb-props::-webkit-scrollbar{display:none;}
+    #sb-props{bottom:74px; gap:2px; padding:5px 7px; max-width:calc(100% - 12px);}
     #sb-props .sb-sep{height:24px; margin:0 2px;}
-    #sb-opacity{width:60px;}
+    #sb-opacity{width:60px; min-width:60px;}
     .sb-tool .tip{display:none;}
     #sb-timer{bottom:120px;}
   }
