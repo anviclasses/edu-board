@@ -70,7 +70,7 @@ var MARKUP = `
     <button class="sb-tool" data-tool="laser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="tip">Laser pointer <kbd>L</kbd></span></button>
     <button class="sb-tool" data-tool="spotlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg><span class="tip">Spotlight <kbd>O</kbd></span></button>
     <button class="sb-tool" id="sb-shadebtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="1"/><path d="M3 14h18M3 18h18" opacity=".5"/></svg><span class="tip">Screen shade</span></button>
-    <button class="sb-tool" id="sb-webbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg><span class="tip">Web lookup</span></button>
+    <button class="sb-tool" id="sb-webbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v1h1a3 3 0 0 1 3 3v1a3 3 0 0 1-1 2.24V15a3 3 0 0 1-3 3h-1v1a3 3 0 0 1-6 0v-1H7a3 3 0 0 1-3-3v-2.76A3 3 0 0 1 3 10V9a3 3 0 0 1 3-3h1V5a3 3 0 0 1 3-3z"/><circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/></svg><span class="tip">AI Chatbot</span></button>
     <button class="sb-tool" id="sb-timerbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span class="tip">Timer</span></button>
     <div class="sb-dock-sep"></div>
     <button class="sb-tool" id="sb-clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span class="tip">Clear page</span></button>
@@ -97,24 +97,79 @@ var MARKUP = `
     <input type="range" id="sb-opacity" min="10" max="100" value="100">
   </div>
 
-  <!-- WEB PANEL -->
+  <!-- AI CHATBOT PANEL -->
   <div id="sb-web" class="sb-glass">
     <div class="sb-web-head sb-drag" id="sb-web-head">
-      <button class="sb-btn" id="sb-web-go" style="height:34px;min-width:34px;padding:0 8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
-      <input id="sb-url" placeholder="Search or paste a link…" />
-      <button class="sb-btn" id="sb-web-newtab" title="Open in new tab" style="height:34px;min-width:34px;padding:0 8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg></button>
+      <div class="sb-ai-mark"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v1h1a3 3 0 0 1 3 3v1a3 3 0 0 1-1 2.24V15a3 3 0 0 1-3 3h-1v1a3 3 0 0 1-6 0v-1H7a3 3 0 0 1-3-3v-2.76A3 3 0 0 1 3 10V9a3 3 0 0 1 3-3h1V5a3 3 0 0 1 3-3z"/><circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/></svg></div>
+      <div class="sb-web-title">
+        <b>AI Study Assistant</b>
+        <small><span class="sb-ai-dot off" id="sb-ai-dot"></span><span id="sb-ai-statusline">No AI connected</span></small>
+      </div>
+      <button class="sb-btn" id="sb-ai-settingsbtn" title="AI settings" style="height:34px;min-width:34px;padding:0 8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <button class="sb-btn" id="sb-web-close" style="height:34px;min-width:34px;padding:0 8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
-    <div class="sb-web-quick" id="sb-web-quick"></div>
+    <div class="sb-web-quick" id="sb-web-quick">
+      <button class="sb-chip" data-provider="openai">OpenAI</button>
+      <button class="sb-chip" data-provider="gemini">Gemini</button>
+      <button class="sb-chip" data-provider="deepseek">DeepSeek</button>
+    </div>
     <div id="sb-web-body">
-      <iframe id="sb-iframe" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
-      <div id="sb-web-fallback">
-        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9h.01M15 9h.01M8 15s1.5-2 4-2 4 2 4 2"/></svg>
-        <div><b>This site won't open inside the board.</b><br>Many sites block embedding for security.</div>
-        <button class="sb-btn" id="sb-web-openfb" style="background:var(--accent);color:var(--accent-ink);">Open in a new tab</button>
+      <div id="sb-chat-log">
+        <div id="sb-chat-empty">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v1h1a3 3 0 0 1 3 3v1a3 3 0 0 1-1 2.24V15a3 3 0 0 1-3 3h-1v1a3 3 0 0 1-6 0v-1H7a3 3 0 0 1-3-3v-2.76A3 3 0 0 1 3 10V9a3 3 0 0 1 3-3h1V5a3 3 0 0 1 3-3z"/></svg>
+          <b>Ask a study question</b>
+          <p>Connect an AI provider in settings, then ask anything about your lesson — answers are kept short (about 100 words) and focused on educational content.</p>
+        </div>
       </div>
     </div>
+    <div id="sb-chat-input-wrap">
+      <textarea id="sb-chat-input" rows="1" placeholder="Ask an educational question…"></textarea>
+      <button id="sb-chat-send" title="Send"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+    </div>
+    <div id="sb-chat-hint">For learning & homework help only · answers limited to ~100 words</div>
   </div>
+
+  <!-- AI SETTINGS MODAL -->
+  <div id="sb-ai-settings">
+    <div id="sb-ai-card" class="sb-glass">
+      <button class="sb-ai-close" id="sb-ai-close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <h3>AI Chatbot settings</h3>
+      <p class="sb-ai-sub">Pick a provider and paste your own API key. The key is stored only in this browser (never uploaded anywhere) and is sent directly from your browser to the provider when you chat.</p>
+
+      <div class="sb-ai-providers" id="sb-ai-providers">
+        <button class="sb-ai-provider-btn" data-provider="openai">OpenAI<br><span style="font-weight:400;opacity:.7;">ChatGPT</span></button>
+        <button class="sb-ai-provider-btn" data-provider="gemini">Google<br><span style="font-weight:400;opacity:.7;">Gemini</span></button>
+        <button class="sb-ai-provider-btn" data-provider="deepseek">DeepSeek<br><span style="font-weight:400;opacity:.7;">DeepSeek</span></button>
+      </div>
+
+      <div class="sb-ai-field">
+        <label for="sb-ai-key">API key</label>
+        <div class="sb-ai-keyrow">
+          <input type="password" id="sb-ai-key" autocomplete="off" spellcheck="false" placeholder="Paste your API key">
+          <button class="sb-ai-eye" id="sb-ai-eye" title="Show/hide key"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <div class="sb-ai-help" id="sb-ai-keyhelp">Get a key at <a id="sb-ai-keylink" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a></div>
+      </div>
+
+      <div class="sb-ai-field" id="sb-ai-modelwrap">
+        <label for="sb-ai-model">Model</label>
+        <input type="text" id="sb-ai-model" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="sb-ai-note">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div>For best results, calling these APIs directly from a browser may require a provider that allows it (CORS). If a request fails, your provider/network may block client-side calls — see the panel message for details.</div>
+      </div>
+
+      <div class="sb-ai-actions">
+        <button class="sb-ai-btn-ghost" id="sb-ai-clear">Remove key</button>
+        <button class="sb-ai-btn-primary" id="sb-ai-save">Save & connect</button>
+      </div>
+      <div class="sb-ai-status" id="sb-ai-status"></div>
+    </div>
+  </div>
+
+
 
   <!-- TIMER -->
   <div id="sb-timer" class="sb-glass">
@@ -960,46 +1015,218 @@ function toggleShade(){const on=shade.classList.toggle('on');$('#sb-shadebtn').c
   grip.addEventListener('pointerup',()=>drag=false);
 })();
 
-/* ============================== web panel ============================== */
-const webEl=$('#sb-web'),iframe=$('#sb-iframe'),urlInp=$('#sb-url'),fb=$('#sb-web-fallback');
-// Google's normal page blocks framing; webhp?igu=1 is the embeddable variant.
-const DEFAULT_URL='https://www.google.com/webhp?igu=1';
-const QUICK=[
-  {n:'Google',u:'https://www.google.com/webhp?igu=1'},
-  {n:'Search',u:'https://duckduckgo.com/'},
-  {n:'Wikipedia',u:'https://en.m.wikipedia.org/wiki/Main_Page'},
-  {n:'Dictionary',u:'https://www.thefreedictionary.com/'},
-  {n:'Wolfram',u:'https://www.wolframalpha.com/'},
-  {n:'Desmos graph',u:'https://www.desmos.com/calculator'},
-  {n:'Periodic table',u:'https://ptable.com/'},
-  {n:'World map',u:'https://www.openstreetmap.org/'},
-];
-const qWrap=$('#sb-web-quick');
-QUICK.forEach(q=>{const c=document.createElement('button');c.className='sb-chip';c.textContent=q.n;c.addEventListener('click',()=>goURL(q.u));qWrap.appendChild(c);});
-let webLoaded=false;
-function toggleWeb(){const open=webEl.classList.toggle('open');$('#sb-webbtn').classList.toggle('active',open);if(open&&!webLoaded){webLoaded=true;goURL(DEFAULT_URL);}}
-$('#sb-web-close').addEventListener('click',toggleWeb);
-function normURL(v){v=v.trim();if(!v)return'';if(/^https?:\/\//i.test(v))return v;if(/^[\w-]+(\.[\w-]+)+/.test(v))return'https://'+v;return'https://duckduckgo.com/?q='+encodeURIComponent(v);}
-let curURL='', loadOK=false;
-function goURL(u){u=normURL(u);if(!u)return;curURL=u;urlInp.value=u;
-  fb.classList.remove('show');iframe.style.display='';loadOK=false;
-  iframe.src=u; clearTimeout(goURL._t);
-  // Cross-origin frames can't be inspected from here, so we can't detect an
-  // X-Frame-Options refusal. Only show the fallback if NOTHING loads at all.
-  goURL._t=setTimeout(()=>{if(!loadOK)showFB();},8000);
+/* ============================== AI chatbot panel ============================== */
+const webEl=$('#sb-web');
+const chatLog=$('#sb-chat-log'), chatEmpty=$('#sb-chat-empty'), chatInput=$('#sb-chat-input'), chatSend=$('#sb-chat-send');
+const aiDot=$('#sb-ai-dot'), aiStatusline=$('#sb-ai-statusline');
+const aiModal=$('#sb-ai-settings'), aiKeyInput=$('#sb-ai-key'), aiModelInput=$('#sb-ai-model');
+const aiKeyHelp=$('#sb-ai-keyhelp'), aiStatusEl=$('#sb-ai-status');
+
+// Storage is namespaced per-embed (in case a page hosts more than one board)
+// using a stable id derived from the host element.
+if(!host.id) host.id='sb-'+Math.random().toString(36).slice(2,9);
+const LS_KEY='smartboard-ai-'+host.id;
+
+const PROVIDERS={
+  openai:{
+    label:'OpenAI', defaultModel:'gpt-4o-mini',
+    keyHelp:'Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>',
+    keyPlaceholder:'sk-…',
+    async send(messages,key,model){
+      const r=await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({model:model||'gpt-4o-mini',max_completion_tokens:220,temperature:0.4,messages})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error((data&&data.error&&data.error.message)||('HTTP '+r.status));
+      return (data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+    }
+  },
+  gemini:{
+    label:'Gemini', defaultModel:'gemini-2.5-flash',
+    keyHelp:'Get a key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>',
+    keyPlaceholder:'AIza…',
+    async send(messages,key,model){
+      const m=model||'gemini-2.5-flash';
+      const sys=messages.find(x=>x.role==='system');
+      const turns=messages.filter(x=>x.role!=='system').map(x=>({role:x.role==='assistant'?'model':'user',parts:[{text:x.content}]}));
+      const body={contents:turns,generationConfig:{maxOutputTokens:220,temperature:0.4}};
+      if(sys) body.systemInstruction={parts:[{text:sys.content}]};
+      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':generateContent',{
+        method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':key}, body:JSON.stringify(body)
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error((data&&data.error&&data.error.message)||('HTTP '+r.status));
+      const cand=data.candidates&&data.candidates[0];
+      const parts=cand&&cand.content&&cand.content.parts;
+      return (parts&&parts.map(p=>p.text||'').join(''))||'';
+    }
+  },
+  deepseek:{
+    label:'DeepSeek', defaultModel:'deepseek-v4-flash',
+    keyHelp:'Get a key at <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">platform.deepseek.com/api_keys</a>',
+    keyPlaceholder:'sk-…',
+    async send(messages,key,model){
+      const r=await fetch('https://api.deepseek.com/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({model:model||'deepseek-v4-flash',max_tokens:220,temperature:0.4,messages})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error((data&&data.error&&data.error.message)||('HTTP '+r.status));
+      return (data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||'';
+    }
+  }
+};
+
+const EDU_SYSTEM_PROMPT='You are a friendly, encouraging study assistant built into a classroom smartboard. '+
+  'Only help with educational content: explaining concepts, schoolwork, homework guidance, study questions, and '+
+  'subjects students learn in school (maths, science, history, languages, etc). If asked about anything outside '+
+  'education (e.g. unrelated personal advice, current events gossip, generating harmful content), politely decline '+
+  'and steer back to learning. Always keep your reply to about 100 words or fewer: be concise, clear, and well '+
+  'organised, using short sentences or a brief list when helpful.';
+
+function loadAISettings(){
+  try{ const raw=localStorage.getItem(LS_KEY); if(raw) return JSON.parse(raw); }catch(_){}
+  return {};
 }
-function showFB(){fb.classList.add('show');}
-iframe.addEventListener('load',()=>{loadOK=true;clearTimeout(goURL._t);fb.classList.remove('show');iframe.style.display='';});
-$('#sb-web-go').addEventListener('click',()=>goURL(urlInp.value));
-urlInp.addEventListener('keydown',e=>{if(e.key==='Enter')goURL(urlInp.value);});
-$('#sb-web-newtab').addEventListener('click',()=>{if(curURL)window.open(curURL,'_blank');});
-$('#sb-web-openfb').addEventListener('click',()=>{if(curURL)window.open(curURL,'_blank');});
-/* draggable web panel */
+function saveAISettings(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(_){} }
+
+let aiSettings=loadAISettings(); // { provider, keys:{openai,gemini,deepseek}, models:{...} }
+aiSettings.keys=aiSettings.keys||{};
+aiSettings.models=aiSettings.models||{};
+let activeProvider=aiSettings.provider||'openai';
+let chatHistory=[]; // {role:'user'|'assistant', content}
+let aiBusy=false;
+
+function currentKey(p){ return (aiSettings.keys&&aiSettings.keys[p])||''; }
+function currentModel(p){ return (aiSettings.models&&aiSettings.models[p])||PROVIDERS[p].defaultModel; }
+function isConnected(p){ return !!currentKey(p); }
+
+function refreshStatusline(){
+  const p=PROVIDERS[activeProvider];
+  if(isConnected(activeProvider)){
+    aiDot.classList.remove('off'); aiStatusline.textContent=p.label+' connected';
+  }else{
+    aiDot.classList.add('off'); aiStatusline.textContent='No AI connected';
+  }
+  qWrap.querySelectorAll('.sb-chip').forEach(c=>c.classList.toggle('active',c.dataset.provider===activeProvider));
+}
+const qWrap=$('#sb-web-quick');
+qWrap.querySelectorAll('.sb-chip').forEach(c=>{
+  c.addEventListener('click',()=>{ activeProvider=c.dataset.provider; aiSettings.provider=activeProvider; saveAISettings(aiSettings); refreshStatusline(); });
+});
+
+/* ---- chat transcript rendering ---- */
+function scrollChatToEnd(){ chatLog.scrollTop=chatLog.scrollHeight; }
+function addMsg(role,text,opts){
+  opts=opts||{};
+  chatEmpty.style.display='none';
+  const el=document.createElement('div');
+  el.className='sb-msg '+(role==='user'?'user':(role==='sys'?'sys':'bot'))+(opts.err?' err':'');
+  el.textContent=text;
+  if(opts.meta){ const m=document.createElement('span'); m.className='sb-msg-meta'; m.textContent=opts.meta; el.appendChild(m); }
+  chatLog.appendChild(el); scrollChatToEnd();
+  return el;
+}
+function showTyping(){
+  const el=document.createElement('div'); el.className='sb-typing'; el.id='sb-typing-ind';
+  el.innerHTML='<i></i><i></i><i></i>'; chatLog.appendChild(el); scrollChatToEnd(); return el;
+}
+function hideTyping(){ const el=$('#sb-typing-ind'); if(el) el.remove(); }
+
+function autosizeChatInput(){ chatInput.style.height='auto'; chatInput.style.height=Math.min(90,chatInput.scrollHeight)+'px'; }
+chatInput.addEventListener('input',autosizeChatInput);
+chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
+chatSend.addEventListener('click',sendChat);
+
+async function sendChat(){
+  const text=chatInput.value.trim();
+  if(!text||aiBusy) return;
+  if(!isConnected(activeProvider)){
+    addMsg('sys','Connect '+PROVIDERS[activeProvider].label+' in AI settings (gear icon) before chatting.');
+    openAISettings(); return;
+  }
+  chatInput.value=''; autosizeChatInput();
+  addMsg('user',text);
+  chatHistory.push({role:'user',content:text});
+  // keep a short rolling window so requests stay small
+  const trimmed=chatHistory.slice(-8);
+  aiBusy=true; chatSend.disabled=true; showTyping();
+  try{
+    const provider=PROVIDERS[activeProvider];
+    const messages=[{role:'system',content:EDU_SYSTEM_PROMPT}, ...trimmed];
+    const reply=await provider.send(messages, currentKey(activeProvider), currentModel(activeProvider));
+    hideTyping();
+    const clean=(reply||'').trim()||'(No response received.)';
+    addMsg('assistant',clean,{meta:provider.label});
+    chatHistory.push({role:'assistant',content:clean});
+  }catch(err){
+    hideTyping();
+    console.error('AI chat error',err);
+    addMsg('assistant','Sorry — the request to '+PROVIDERS[activeProvider].label+' failed: '+(err&&err.message?err.message:'unknown error')+'. Check your API key and network/CORS settings in AI settings.',{err:true});
+  }finally{
+    aiBusy=false; chatSend.disabled=false;
+  }
+}
+
+/* ---- panel open/close ---- */
+function toggleWeb(){ const open=webEl.classList.toggle('open'); $('#sb-webbtn').classList.toggle('active',open); if(open){ refreshStatusline(); chatInput.focus(); } }
+$('#sb-web-close').addEventListener('click',toggleWeb);
+/* draggable chat panel */
 (function(){const head=$('#sb-web-head');let d=false,sx,sy,ox,oy;
   head.addEventListener('pointerdown',e=>{if(e.target.closest('input,button'))return;d=true;sx=e.clientX;sy=e.clientY;ox=webEl.offsetLeft;oy=webEl.offsetTop;webEl.style.right='auto';head.setPointerCapture(e.pointerId);});
   head.addEventListener('pointermove',e=>{if(!d)return;webEl.style.left=(ox+e.clientX-sx)+'px';webEl.style.top=(oy+e.clientY-sy)+'px';});
   head.addEventListener('pointerup',()=>d=false);
 })();
+
+/* ---- AI settings modal ---- */
+let modalProvider=activeProvider;
+function paintModalProvider(){
+  $('#sb-ai-providers').querySelectorAll('.sb-ai-provider-btn').forEach(b=>b.classList.toggle('active',b.dataset.provider===modalProvider));
+  const p=PROVIDERS[modalProvider];
+  aiKeyInput.value=currentKey(modalProvider);
+  aiKeyInput.placeholder=p.keyPlaceholder;
+  aiModelInput.value=currentModel(modalProvider);
+  aiKeyHelp.innerHTML=p.keyHelp;
+  aiStatusEl.textContent=''; aiStatusEl.className='sb-ai-status';
+}
+function openAISettings(){ modalProvider=activeProvider; paintModalProvider(); aiModal.classList.add('open'); }
+function closeAISettings(){ aiModal.classList.remove('open'); }
+$('#sb-ai-settingsbtn').addEventListener('click',openAISettings);
+$('#sb-ai-close').addEventListener('click',closeAISettings);
+aiModal.addEventListener('pointerdown',e=>{ if(e.target===aiModal) closeAISettings(); });
+$('#sb-ai-providers').querySelectorAll('.sb-ai-provider-btn').forEach(b=>{
+  b.addEventListener('click',()=>{ modalProvider=b.dataset.provider; paintModalProvider(); });
+});
+let keyVisible=false;
+$('#sb-ai-eye').addEventListener('click',()=>{ keyVisible=!keyVisible; aiKeyInput.type=keyVisible?'text':'password'; });
+$('#sb-ai-save').addEventListener('click',()=>{
+  const key=aiKeyInput.value.trim();
+  const model=aiModelInput.value.trim()||PROVIDERS[modalProvider].defaultModel;
+  if(!key){ aiStatusEl.textContent='Paste an API key first.'; aiStatusEl.className='sb-ai-status bad'; return; }
+  aiSettings.keys[modalProvider]=key;
+  aiSettings.models[modalProvider]=model;
+  aiSettings.provider=modalProvider;
+  activeProvider=modalProvider;
+  saveAISettings(aiSettings);
+  refreshStatusline();
+  aiStatusEl.textContent=PROVIDERS[modalProvider].label+' connected ✓';
+  aiStatusEl.className='sb-ai-status ok';
+  setTimeout(closeAISettings,650);
+});
+$('#sb-ai-clear').addEventListener('click',()=>{
+  delete aiSettings.keys[modalProvider];
+  saveAISettings(aiSettings);
+  aiKeyInput.value='';
+  refreshStatusline();
+  aiStatusEl.textContent=PROVIDERS[modalProvider].label+' key removed.';
+  aiStatusEl.className='sb-ai-status';
+});
+refreshStatusline();
+
+
 
 /* ============================== timer ============================== */
 const timerEl=$('#sb-timer'),tT=$('#sb-timer-t'); let tSec=0,tRun=false,tInt=null;
@@ -1013,7 +1240,7 @@ $('#sb-timer-reset').addEventListener('click',()=>{clearInterval(tInt);tRun=fals
 /* ============================== keyboard ============================== */
 let spaceDown=false;
 host.addEventListener('keydown',e=>{
-  if(e.target===ta||e.target===urlInp)return;
+  if(e.target===ta||e.target===chatInput||e.target===aiKeyInput||e.target===aiModelInput)return;
   if(e.key===' '){spaceDown=true;cv.style.cursor='grab';}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
@@ -1125,7 +1352,7 @@ cv.addEventListener('pointerdown', _onDtPointerDown, true);
 
 // Keyboard shortcut: backtick ` or Shift+H to toggle toolbars
 host.addEventListener('keydown', function(e){
-  if(e.target === ta || e.target === urlInp) return;
+  if(e.target === ta || e.target === chatInput || e.target === aiKeyInput || e.target === aiModelInput) return;
   if(e.key === '`' || (e.key === 'H' && e.shiftKey)){
     e.preventDefault();
     toggleUI();
