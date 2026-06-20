@@ -182,13 +182,13 @@ function boot(host){
   var ASPECT = parseAspect(host.getAttribute('data-aspect'));
   var MINH = parseInt(host.getAttribute('data-min-height')||'360',10) || 360;
   var MAXH = parseInt(host.getAttribute('data-max-height')||'0',10) || 0;
-  function isHostFS(){ return (document.fullscreenElement===host)||(document.webkitFullscreenElement===host); }
+  function isHostFS(){ return (document.fullscreenElement===host)||(document.webkitFullscreenElement===host)||host.classList.contains('sb-fakefs'); }
   function applyHeight(){
     if(isHostFS()) return;            // in fullscreen the :fullscreen CSS fills the screen
     if(fixedH){ var v=fixedH; if(/^[0-9]+$/.test(v)) v=v+'px'; if(host.style.height!==v) host.style.height=v; return; }
     var w = host.clientWidth || (host.getBoundingClientRect&&host.getBoundingClientRect().width) || 0;
     if(!w) return;
-    var vh = window.innerHeight || 800;
+    var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 800;
     var max = MAXH || Math.min(900, Math.round(vh*0.86));
     var hgt = Math.max(MINH, Math.min(max, Math.round(w/ASPECT)));
     var px = hgt+'px';
@@ -241,6 +241,11 @@ function resize(){
   render();
 }
 window.addEventListener('resize',resize); if(window.ResizeObserver){try{new ResizeObserver(()=>resize()).observe(wrap);}catch(_){ }}
+// Orientation flips and mobile browser-chrome resizing (address bar / virtual
+// keyboard show or hide) don't always trigger a timely 'resize' event on
+// phones and tablets — listen on these too so the board re-fits everywhere.
+window.addEventListener('orientationchange',()=>{setTimeout(resize,60);setTimeout(resize,260);});
+if(window.visualViewport){window.visualViewport.addEventListener('resize',resize);window.visualViewport.addEventListener('scroll',resize);}
 
 /* ============================== coords ============================== */
 function boardPt(e){
@@ -554,6 +559,20 @@ function moveObj(o,dx,dy){
   else{o.x+=dx;o.y+=dy;}
 }
 
+/* ---------- shared zoom helper ----------
+   Every zoom interaction (toolbar buttons, +/-/0 keys, Ctrl/Cmd+wheel,
+   and two-finger pinch) scales around the centre of the visible screen,
+   not the cursor or finger position — so the board never drifts off to
+   one side while zooming on any device. */
+function screenCenter(){ return {x:cv.clientWidth/2, y:cv.clientHeight/2}; }
+function applyZoom(targetScale){
+  const ns=Math.max(.2,Math.min(8,targetScale));
+  const c=screenCenter();
+  view.x=c.x-(c.x-view.x)*(ns/view.scale);
+  view.y=c.y-(c.y-view.y)*(ns/view.scale);
+  view.scale=ns;
+}
+
 /* ---------- gestures (pinch / two-finger pan) ---------- */
 function gestureState(){
   const p=[...pointers.values()];
@@ -562,12 +581,12 @@ function gestureState(){
 function doGesture(){
   const g=gestureState(); if(!gLast){gLast=g;return;}
   leaveAutofit();
-  const r=cv.getBoundingClientRect();
+  // Two-finger drag still pans normally...
   view.x+=g.mx-gLast.mx; view.y+=g.my-gLast.my;
+  // ...but the pinch zoom itself is always anchored to the screen centre.
   if(gLast.d>0){
-    const f=g.d/gLast.d; const ns=Math.max(.2,Math.min(8,view.scale*f));
-    const fx=g.mx-r.left, fy=g.my-r.top;
-    view.x=fx-(fx-view.x)*(ns/view.scale); view.y=fy-(fy-view.y)*(ns/view.scale); view.scale=ns;
+    const f=g.d/gLast.d;
+    applyZoom(view.scale*f);
   }
   gLast=g; render();
 }
@@ -577,10 +596,9 @@ cv.addEventListener('wheel',e=>{
   e.preventDefault();
   if(tool==='spotlight'){spotR=Math.max(50,Math.min(420,spotR-e.deltaY*0.5));return;}
   leaveAutofit();
-  const r=cv.getBoundingClientRect(), fx=e.clientX-r.left, fy=e.clientY-r.top;
   if(e.ctrlKey||e.metaKey){
-    const f=Math.exp(-e.deltaY*0.0016); const ns=Math.max(.2,Math.min(8,view.scale*f));
-    view.x=fx-(fx-view.x)*(ns/view.scale); view.y=fy-(fy-view.y)*(ns/view.scale); view.scale=ns;
+    const f=Math.exp(-e.deltaY*0.0016);
+    applyZoom(view.scale*f);
   }else{view.x-=e.deltaX;view.y-=e.deltaY;}
   render();
 },{passive:false});
@@ -717,16 +735,21 @@ function popup(anchor, items){
 
 /* ============================== fullscreen & welcome ============================== */
 var fsEl = (typeof host !== 'undefined' && host) ? host : $('#sb-app');
+var fakeFS = false; // true when we're using the CSS fallback instead of the native API
+function nativeFSSupported(){ return !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen); }
 function enterFS(){
+  if(!nativeFSSupported()){ fakeFS=true; fsEl.classList.add('sb-fakefs'); onHostFS(); onFSchange(); return Promise.resolve(); }
   var r = fsEl.requestFullscreen ? fsEl.requestFullscreen()
         : (fsEl.webkitRequestFullscreen ? fsEl.webkitRequestFullscreen() : null);
-  return (r && r.then) ? r : Promise.resolve();
+  return (r && r.then) ? r.catch(()=>{ fakeFS=true; fsEl.classList.add('sb-fakefs'); onHostFS(); onFSchange(); })
+                       : Promise.resolve();
 }
 function exitFS(){
+  if(fakeFS){ fakeFS=false; fsEl.classList.remove('sb-fakefs'); onHostFS(); onFSchange(); return Promise.resolve(); }
   if(document.exitFullscreen) return document.exitFullscreen();
   if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
 }
-function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function isFS(){ return fakeFS || !!(document.fullscreenElement || document.webkitFullscreenElement); }
 $('#sb-full').addEventListener('click',()=>{
   if(!isFS()) enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
   else exitFS();
@@ -890,22 +913,10 @@ async function importPPT(f){
     const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-99999px;top:0;width:1280px;background:#fff;';holder.id='sb-pptx';document.body.appendChild(holder);
     window.$(holder).pptxToHtml({pptxFileUrl:url,slidesScale:'100%',slideMode:false,keyBoardShortCut:false});
     await until(()=>holder.querySelectorAll('.slide').length>0,12000);
-    // Give the deck a moment to finish laying out, then make sure every
-    // image inside it has actually finished loading (logos/photos that are
-    // still mid-fetch cause html2canvas to capture a slide that's too short/
-    // the wrong aspect ratio, which is what makes the result look like it
-    // "doesn't fit the screen" once it's scaled up to fullscreen).
-    await new Promise(r=>setTimeout(r,400));
-    const imgs=[...holder.querySelectorAll('img')];
-    await Promise.race([
-      Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(res=>{im.onload=im.onerror=res;}))),
-      new Promise(res=>setTimeout(res,4000))
-    ]);
-    if(document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(res=>setTimeout(res,1500))]);
-    await new Promise(r=>setTimeout(r,150));
+    await new Promise(r=>setTimeout(r,700));
     const slides=[...holder.querySelectorAll('.slide')]; const out=[];
     for(let i=0;i<slides.length;i++){showLoad(`Capturing slide ${i+1} of ${slides.length}…`);
-      const c=await window.html2canvas(slides[i],{scale:1.4,backgroundColor:'#fff',logging:false,useCORS:true});
+      const c=await window.html2canvas(slides[i],{scale:1.4,backgroundColor:'#fff',logging:false});
       out.push({src:c.toDataURL('image/jpeg',0.85),w:c.width,h:c.height});}
     holder.remove();URL.revokeObjectURL(url);
     if(out.length){addDocPages(out);toast(`Loaded ${out.length} slides`);}else throw new Error('no slides');
@@ -922,35 +933,14 @@ function addDocPages(list){
     startIndex=0; list.slice(1).forEach((d,i)=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};p.autofit=true;ensureImg(d.src);pages.push(p);}); }
   else{ list.forEach(d=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};p.autofit=true;ensureImg(d.src);pages.push(p);});
     startIndex=pages.length-list.length; }
-  cur=startIndex;
-  // Force the canvas backing store to match whatever space is *actually*
-  // available right now (fullscreen on mobile can still be reflowing at
-  // this exact moment) before computing the fit — then refit a couple more
-  // times on the next frames in case the layout keeps settling.
-  resize(); fitView(); pages[cur].view={...view}; updatePageLbl(); render();
-  settleFit(3);
-}
-// Re-applies fitView() a few more times on subsequent animation frames.
-// Needed because entering fullscreen (especially on phones/tablets) can
-// keep adjusting the viewport for a frame or two after the
-// fullscreenchange/resize events already fired, which otherwise leaves an
-// imported PPTX/PDF page fitted to a stale, too-small/too-large canvas size.
-function settleFit(tries){
-  if(tries<=0) return;
-  requestAnimationFrame(()=>{
-    const pg=page();
-    if(pg && pg.bg.type==='image' && pg.autofit){ resize(); fitView(); pages[cur].view={...view}; render(); }
-    settleFit(tries-1);
-  });
+  cur=startIndex; fitView(); pages[cur].view={...view}; updatePageLbl(); render();
 }
 // Recomputes the view so an imported page (PDF/PPTX image) fits fully and
 // centred inside whatever screen space is currently available — phone,
 // tablet, desktop, portrait or landscape, windowed or fullscreen.
 function fitView(){
   const pg=page(); if(pg.bg.type!=='image'){view={scale:1,x:0,y:0};return;}
-  const w=cv.clientWidth,h=cv.clientHeight;
-  if(!w||!h) return; // canvas not laid out yet (e.g. fullscreen still settling) — keep current view, settleFit() will retry
-  const m=0.94;
+  const w=cv.clientWidth,h=cv.clientHeight; const m=0.94;
   const s=Math.min(w*m/pg.bg.w, h*m/pg.bg.h);
   view={scale:s, x:(w-pg.bg.w*s)/2, y:(h-pg.bg.h*s)/2};
   pg.autofit=true; // mark this page as "fit to screen" so resize/rotate/fullscreen keep it fitted
@@ -1150,7 +1140,7 @@ host.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft')switchPage(cur-1);
 });
 host.addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;cv.style.cursor=tool==='select'?'default':'crosshair';}});
-function zoomBy(f){leaveAutofit();const w=cv.clientWidth/2,h=cv.clientHeight/2;const ns=Math.max(.2,Math.min(8,view.scale*f));view.x=w-(w-view.x)*(ns/view.scale);view.y=h-(h-view.y)*(ns/view.scale);view.scale=ns;render();}
+function zoomBy(f){leaveAutofit();applyZoom(view.scale*f);render();}
 
 /* ============================== helpers ============================== */
 let toastT;
