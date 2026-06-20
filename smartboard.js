@@ -1056,104 +1056,71 @@ function toggleUI(){
   toast(uiHidden ? 'Toolbars hidden — double-tap to restore' : 'Toolbars visible');
 }
 
-// --- Double-tap detection on the drawing canvas ---
-// Strategy: intercept BOTH taps in capture phase (before drawing logic).
-// First tap  → hold it for _DT_MS ms. If a second tap arrives in time,
-//              retroactively cancel the first stroke (set live=null) and
-//              suppress the second event entirely → no dot, no stroke.
-// First tap  → if no second tap arrives within _DT_MS, the drawing logic
-//              already ran normally (we only suppressed propagation briefly
-//              via a flag, then re-enabled it). No delay is visible to the
-//              user because we block the first event only momentarily and
-//              retroactively cancel via live=null if it becomes a double-tap.
+// --- Double-tap detection (zero-latency, retroactive cancel) ---
+// Every tap is allowed through to the drawing logic immediately — no delay,
+// no synthetic re-dispatch. On confirmed double-tap we retroactively undo
+// whatever the first tap committed (a dot or in-progress stroke).
 //
-// Simpler equivalent used here:
-//   • On every pointerdown (non-pen, single pointer), set a flag
-//     `_dtSuppressNext = true` for _DT_MS ms.
-//   • The bubble-phase drawing handler checks this flag; if set it skips
-//     starting a stroke.
-//   • On second tap within window → toggle UI, clear flag and suppress event.
-//   • If no second tap → flag expires, subsequent pointerdown draws normally.
-//
-// This means the first tap of a double-tap is delayed by up to _DT_MS before
-// a stroke starts. For fast deliberate drawing this is imperceptible; for a
-// double-tap it prevents any dot.
+// Tap 1: draw normally. Record undo-stack length so we can roll back.
+// Tap 2 (within _DT_MS + _DT_PX): it's a double-tap.
+//   • If tap-1 committed a dot (undoStack grew), pop that undo entry and
+//     restore the previous state — the dot disappears silently.
+//   • Also null out `live` to cancel any in-progress stroke from tap 2.
+//   • Suppress tap-2 from reaching drawing logic via stopImmediatePropagation.
+//   • Toggle the toolbars.
 
-const _DT_MS = 300;  // max gap between two taps (ms)
-const _DT_PX = 22;   // max finger movement between taps (px)
+const _DT_MS = 320;   // max ms between tap 1 and tap 2
+const _DT_PX = 24;    // max px of movement between taps
 
-let _dtArmed = false;      // true while we are in the double-tap watch window
-let _dtArmTimer = null;    // timer that expires the watch window
-let _dtFirstPt = null;     // screen position of first tap
-
-// Drawing suppression flag checked by the bubble-phase pointerdown handler
-let _dtBlock = false;
-
-function _dtExpire(){
-  // Window closed without a second tap — allow drawing again
-  _dtArmed = false;
-  _dtBlock = false;
-  _dtFirstPt = null;
-  _dtArmTimer = null;
-}
+let _dtArmed    = false;   // waiting for tap 2
+let _dtFirstPt  = null;    // screen coords of tap 1
+let _dtUndoLen  = 0;       // undoStack.length just before tap 1 drew
 
 function _onDtPointerDown(e){
-  // Only intercept touch/mouse; leave pen strokes completely alone
+  // Pen input and multi-touch are never part of double-tap detection
   if(e.pointerType === 'pen') return;
-  // Ignore if a multi-finger gesture is already in progress
-  if(pointers.size > 1){ clearTimeout(_dtArmTimer); _dtExpire(); return; }
+  if(pointers.size > 1){ _dtArmed = false; return; }
 
   const cx = e.clientX, cy = e.clientY;
 
   if(_dtArmed){
-    // Second tap — check proximity
     const moved = _dtFirstPt ? Math.hypot(cx - _dtFirstPt.x, cy - _dtFirstPt.y) : 0;
     if(moved <= _DT_PX){
-      // ✅ Confirmed double-tap
-      clearTimeout(_dtArmTimer);
-      _dtExpire();
-      // Suppress this (second) event from reaching drawing logic
+      // ✅ Double-tap confirmed
+      _dtArmed = false;
+
+      // Cancel tap-2 stroke before it starts
       e.stopImmediatePropagation();
-      // Also cancel any live stroke that the first tap may have started
-      // (live is set by the bubble-phase handler on pointerdown of tap 1)
       live = null;
+
+      // Roll back the dot that tap-1 may have committed
+      // undoStack grows by 1 when a stroke is pushed; if it did, pop it.
+      if(undoStack.length > _dtUndoLen){
+        // Discard the extra undo entry — restores the canvas to pre-tap-1
+        const snapshot = undoStack.pop();
+        // loadAll restores pages/objects; we do NOT push to redoStack
+        // (this wasn't a user undo, it's an invisible cancel)
+        try{ loadAll(snapshot); }catch(_){ }
+        updateUndo(); render();
+      }
+
       toggleUI();
       return;
     }
-    // Moved too far — treat this as a fresh first tap instead
-    clearTimeout(_dtArmTimer);
-    _dtExpire();
+    // Moved too far — not a double-tap; arm again for next attempt
+    _dtArmed = false;
   }
 
-  // First tap: arm the double-tap window and block this tap from drawing
-  _dtArmed = true;
-  _dtBlock = true;
+  // Arm: record state just before this tap draws
+  _dtArmed   = true;
   _dtFirstPt = { x: cx, y: cy };
-  // Stop the first tap from reaching the bubble-phase drawing handler
-  e.stopImmediatePropagation();
+  _dtUndoLen = undoStack.length;
 
-  // After _DT_MS: no second tap came → release drawing suppression and
-  // synthesise a fresh pointerdown so the stroke starts as normal.
-  _dtArmTimer = setTimeout(function(){
-    _dtExpire();
-    // Re-fire a synthetic pointerdown so the user's tap draws normally
-    // (only if the pointer is still considered pressed — i.e. drawId is null)
-    if(drawId === null){
-      cv.dispatchEvent(new PointerEvent('pointerdown', {
-        bubbles: true, cancelable: true,
-        clientX: cx, clientY: cy,
-        pointerId: e.pointerId,
-        pointerType: e.pointerType,
-        pressure: e.pressure || 0.5,
-        isPrimary: e.isPrimary,
-        buttons: e.buttons || 1,
-        button: e.button
-      }));
-    }
-  }, _DT_MS);
+  // Auto-disarm if no second tap arrives within the window
+  clearTimeout(_onDtPointerDown._t);
+  _onDtPointerDown._t = setTimeout(function(){ _dtArmed = false; }, _DT_MS);
 }
 
-// Capture phase: fires before the existing bubble-phase drawing listeners
 cv.addEventListener('pointerdown', _onDtPointerDown, true);
 
 // Keyboard shortcut: backtick ` or Shift+H to toggle toolbars
