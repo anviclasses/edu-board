@@ -890,10 +890,22 @@ async function importPPT(f){
     const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-99999px;top:0;width:1280px;background:#fff;';holder.id='sb-pptx';document.body.appendChild(holder);
     window.$(holder).pptxToHtml({pptxFileUrl:url,slidesScale:'100%',slideMode:false,keyBoardShortCut:false});
     await until(()=>holder.querySelectorAll('.slide').length>0,12000);
-    await new Promise(r=>setTimeout(r,700));
+    // Give the deck a moment to finish laying out, then make sure every
+    // image inside it has actually finished loading (logos/photos that are
+    // still mid-fetch cause html2canvas to capture a slide that's too short/
+    // the wrong aspect ratio, which is what makes the result look like it
+    // "doesn't fit the screen" once it's scaled up to fullscreen).
+    await new Promise(r=>setTimeout(r,400));
+    const imgs=[...holder.querySelectorAll('img')];
+    await Promise.race([
+      Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(res=>{im.onload=im.onerror=res;}))),
+      new Promise(res=>setTimeout(res,4000))
+    ]);
+    if(document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(res=>setTimeout(res,1500))]);
+    await new Promise(r=>setTimeout(r,150));
     const slides=[...holder.querySelectorAll('.slide')]; const out=[];
     for(let i=0;i<slides.length;i++){showLoad(`Capturing slide ${i+1} of ${slides.length}…`);
-      const c=await window.html2canvas(slides[i],{scale:1.4,backgroundColor:'#fff',logging:false});
+      const c=await window.html2canvas(slides[i],{scale:1.4,backgroundColor:'#fff',logging:false,useCORS:true});
       out.push({src:c.toDataURL('image/jpeg',0.85),w:c.width,h:c.height});}
     holder.remove();URL.revokeObjectURL(url);
     if(out.length){addDocPages(out);toast(`Loaded ${out.length} slides`);}else throw new Error('no slides');
@@ -910,14 +922,35 @@ function addDocPages(list){
     startIndex=0; list.slice(1).forEach((d,i)=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};p.autofit=true;ensureImg(d.src);pages.push(p);}); }
   else{ list.forEach(d=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};p.autofit=true;ensureImg(d.src);pages.push(p);});
     startIndex=pages.length-list.length; }
-  cur=startIndex; fitView(); pages[cur].view={...view}; updatePageLbl(); render();
+  cur=startIndex;
+  // Force the canvas backing store to match whatever space is *actually*
+  // available right now (fullscreen on mobile can still be reflowing at
+  // this exact moment) before computing the fit — then refit a couple more
+  // times on the next frames in case the layout keeps settling.
+  resize(); fitView(); pages[cur].view={...view}; updatePageLbl(); render();
+  settleFit(3);
+}
+// Re-applies fitView() a few more times on subsequent animation frames.
+// Needed because entering fullscreen (especially on phones/tablets) can
+// keep adjusting the viewport for a frame or two after the
+// fullscreenchange/resize events already fired, which otherwise leaves an
+// imported PPTX/PDF page fitted to a stale, too-small/too-large canvas size.
+function settleFit(tries){
+  if(tries<=0) return;
+  requestAnimationFrame(()=>{
+    const pg=page();
+    if(pg && pg.bg.type==='image' && pg.autofit){ resize(); fitView(); pages[cur].view={...view}; render(); }
+    settleFit(tries-1);
+  });
 }
 // Recomputes the view so an imported page (PDF/PPTX image) fits fully and
 // centred inside whatever screen space is currently available — phone,
 // tablet, desktop, portrait or landscape, windowed or fullscreen.
 function fitView(){
   const pg=page(); if(pg.bg.type!=='image'){view={scale:1,x:0,y:0};return;}
-  const w=cv.clientWidth,h=cv.clientHeight; const m=0.94;
+  const w=cv.clientWidth,h=cv.clientHeight;
+  if(!w||!h) return; // canvas not laid out yet (e.g. fullscreen still settling) — keep current view, settleFit() will retry
+  const m=0.94;
   const s=Math.min(w*m/pg.bg.w, h*m/pg.bg.h);
   view={scale:s, x:(w-pg.bg.w*s)/2, y:(h-pg.bg.h*s)/2};
   pg.autofit=true; // mark this page as "fit to screen" so resize/rotate/fullscreen keep it fitted
