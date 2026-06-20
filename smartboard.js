@@ -1020,8 +1020,10 @@ $('#sb-timer-reset').addEventListener('click',()=>{clearInterval(tInt);tRun=fals
 
 /* ============================== toolbar show / hide ============================== */
 // Double-tap (or double-click) the board toggles the top bar, tool dock, and
-// properties bar. They also auto-hide after 5s of inactivity to keep the
-// board clear, and reappear instantly on the next interaction.
+// properties bar. While visible, they auto-hide after 5s of inactivity to
+// keep the board clear. Once hidden, ONLY a double-tap brings them back —
+// drawing, panning, or any other canvas interaction never reveals them, so
+// the board stays a clean, uninterrupted workspace until asked for.
 const barEls=[$('#sb-top'),$('#sb-dock'),$('#sb-props')];
 let barsVisible=true, barsAutoHideT=null, barsHintT=null, barsHintShown=false;
 
@@ -1041,7 +1043,8 @@ function showBarsHintOnce(){
 }
 function setBarsVisible(v){
   barsVisible=v; applyBarsVisible();
-  if(!v) showBarsHintOnce(); else barsHintEl.classList.remove('show');
+  if(!v){ clearTimeout(barsAutoHideT); showBarsHintOnce(); }
+  else{ barsHintEl.classList.remove('show'); scheduleAutoHide(); }
 }
 function toggleBars(){ setBarsVisible(!barsVisible); }
 function scheduleAutoHide(){
@@ -1050,21 +1053,21 @@ function scheduleAutoHide(){
   barsAutoHideT=setTimeout(()=>setBarsVisible(false),5000);
 }
 function bumpBarsActivity(){
-  // Any meaningful interaction keeps the bars visible and resets the 5s clock.
-  if(!barsVisible) setBarsVisible(true); else scheduleAutoHide();
+  // Only resets the auto-hide clock while bars are already showing — never
+  // brings them back from hidden. That's double-tap's job alone.
+  if(barsVisible) scheduleAutoHide();
 }
 scheduleAutoHide();
 
 // Manual two-tap detection on the canvas (works for mouse, touch, and pen,
 // and avoids fighting the existing dblclick-to-edit-text behaviour below).
-let lastTapT=0, lastTapX=0, lastTapY=0, loneTapT=null;
+let lastTapT=0, lastTapX=0, lastTapY=0;
 const DBLTAP_MS=320, DBLTAP_PX=28;
 cv.addEventListener('pointerdown',e=>{
   const now=performance.now();
   const dx=e.clientX-lastTapX, dy=e.clientY-lastTapY;
   const isDblTap = now-lastTapT<DBLTAP_MS && Math.hypot(dx,dy)<DBLTAP_PX;
   if(isDblTap){
-    clearTimeout(loneTapT); // the pending lone-tap turned out to be tap 1 of this pair — cancel it
     lastTapT=0; // consume — don't chain into a triple-tap re-trigger
     // Let an existing double-click-to-edit-text (on a hit text object, in
     // select mode) take priority over the show/hide toggle.
@@ -1084,22 +1087,12 @@ cv.addEventListener('pointerdown',e=>{
     e.stopImmediatePropagation();
   } else {
     lastTapT=now; lastTapX=e.clientX; lastTapY=e.clientY;
-    // A lone tap (not part of a double-tap) still counts as activity: if
-    // bars are hidden it brings them back, otherwise it resets the 5s
-    // clock. Defer past the double-tap window first — otherwise this tap
-    // (as tap 1 of a pair) would show the bars right before tap 2 arrives
-    // and immediately toggles them back off again.
-    clearTimeout(loneTapT);
-    loneTapT=setTimeout(bumpBarsActivity,DBLTAP_MS+20);
   }
 },{capture:true});
 
-// Real drawing/navigation activity (an actual stroke, pan, zoom, or key
-// press) always keeps the bars visible immediately and resets the 5s clock.
-// Note: pointermove only counts while something is actively happening
-// (drawing/panning/gesturing) — plain hover/repositioning must NOT bump
-// activity, both because hovering isn't "use" and because it would race
-// the double-tap toggle (a mouse always moves into position before a click).
+// While bars are visible, real drawing/navigation activity (an actual
+// stroke, pan, zoom, or key press) resets the 5s auto-hide clock. None of
+// this brings hidden bars back — see bumpBarsActivity above.
 cv.addEventListener('pointermove',e=>{ if(drawId!==null||panStart||gesturing) bumpBarsActivity(); },{passive:true});
 cv.addEventListener('wheel',bumpBarsActivity,{passive:true});
 host.addEventListener('keydown',bumpBarsActivity);
