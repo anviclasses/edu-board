@@ -134,7 +134,7 @@ var MARKUP = `
     <div id="sb-ai-card" class="sb-glass">
       <button class="sb-ai-close" id="sb-ai-close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       <h3>AI Chatbot settings</h3>
-      <p class="sb-ai-sub">Pick a provider and paste your own API key. The key is stored only in this browser (never uploaded anywhere) and is sent directly from your browser to the provider when you chat.</p>
+      <p class="sb-ai-sub">Pick a provider and paste your own API key. It's saved in this browser only (never uploaded anywhere) and stays remembered across refreshes and closing the tab — sent directly from your browser to the provider only when you send a message.</p>
 
       <div class="sb-ai-providers" id="sb-ai-providers">
         <button class="sb-ai-provider-btn" data-provider="openai">OpenAI<br><span style="font-weight:400;opacity:.7;">ChatGPT</span></button>
@@ -1022,9 +1022,26 @@ const aiDot=$('#sb-ai-dot'), aiStatusline=$('#sb-ai-statusline');
 const aiModal=$('#sb-ai-settings'), aiKeyInput=$('#sb-ai-key'), aiModelInput=$('#sb-ai-model');
 const aiKeyHelp=$('#sb-ai-keyhelp'), aiStatusEl=$('#sb-ai-status');
 
-// Storage is namespaced per-embed (in case a page hosts more than one board)
-// using a stable id derived from the host element.
-if(!host.id) host.id='sb-'+Math.random().toString(36).slice(2,9);
+// Storage is namespaced per-embed (in case a page hosts more than one board),
+// using an identity that stays the SAME across page reloads/closes so saved
+// AI settings are never lost. Preference order:
+//   1. an explicit id the page author put on the host element
+//   2. the host's position among all smartboard embeds on the page (stable
+//      across reloads as long as the surrounding page markup doesn't change)
+//   3. (last resort, e.g. host injected with no siblings to index by) a
+//      random id — written onto the element as a real attribute so that if
+//      the same DOM node persists (SPA route changes, etc.) the key stays
+//      put for the rest of that session at least.
+(function assignStableHostId(){
+  if(host.id) return; // page author already gave it a real id — use as-is
+  var saved=host.getAttribute('data-sb-instance');
+  if(saved){ host.id=saved; return; }
+  var all=document.querySelectorAll('.smartboard-embed, [data-smartboard]');
+  var idx=Array.prototype.indexOf.call(all,host);
+  var stableId = all.length<=1 ? 'sb-embed-solo' : (idx>-1 ? ('sb-embed-'+idx) : ('sb-'+Math.random().toString(36).slice(2,9)));
+  host.id=stableId;
+  host.setAttribute('data-sb-instance',stableId);
+})();
 const LS_KEY='smartboard-ai-'+host.id;
 
 const PROVIDERS={
@@ -1091,7 +1108,12 @@ function loadAISettings(){
   try{ const raw=localStorage.getItem(LS_KEY); if(raw) return JSON.parse(raw); }catch(_){}
   return {};
 }
-function saveAISettings(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(_){} }
+function saveAISettings(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); return true; }catch(_){ return false; } }
+let storageAvailable=true;
+(function probeStorage(){
+  try{ const t='__sb_probe__'; localStorage.setItem(t,'1'); localStorage.removeItem(t); }
+  catch(_){ storageAvailable=false; }
+})();
 
 let aiSettings=loadAISettings(); // { provider, keys:{openai,gemini,deepseek}, models:{...} }
 aiSettings.keys=aiSettings.keys||{};
@@ -1210,11 +1232,16 @@ $('#sb-ai-save').addEventListener('click',()=>{
   aiSettings.models[modalProvider]=model;
   aiSettings.provider=modalProvider;
   activeProvider=modalProvider;
-  saveAISettings(aiSettings);
+  const persisted=saveAISettings(aiSettings);
   refreshStatusline();
-  aiStatusEl.textContent=PROVIDERS[modalProvider].label+' connected ✓';
-  aiStatusEl.className='sb-ai-status ok';
-  setTimeout(closeAISettings,650);
+  if(persisted){
+    aiStatusEl.textContent=PROVIDERS[modalProvider].label+' connected ✓ (saved in this browser)';
+    aiStatusEl.className='sb-ai-status ok';
+    setTimeout(closeAISettings,900);
+  }else{
+    aiStatusEl.textContent='Connected for this session, but this browser blocked saving (private/incognito mode?) — you\'ll need to re-enter the key after closing this tab.';
+    aiStatusEl.className='sb-ai-status bad';
+  }
 });
 $('#sb-ai-clear').addEventListener('click',()=>{
   delete aiSettings.keys[modalProvider];
