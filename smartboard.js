@@ -213,9 +213,14 @@ var MARKUP = `
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
         <div class="sb-drop-main">Drag &amp; drop a PDF or PowerPoint</div>
         <button id="sb-welcome-browse">Browse files</button>
-        <div class="sb-drop-accept">Accepted: PDF · PPT · PPTX</div>
+        <div class="sb-drop-accept">Accepted: PDF · PPTX (modern PowerPoint)</div>
       </div>
-      <input type="file" id="sb-welcome-file" accept=".pdf,.ppt,.pptx" class="sb-hidden">
+      <div id="sb-welcome-notice">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+        <div id="sb-welcome-notice-text"></div>
+        <button id="sb-welcome-notice-close" title="Dismiss"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <input type="file" id="sb-welcome-file" accept=".pdf,.pptx" class="sb-hidden">
       <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
     </div>
   </div>
@@ -789,11 +794,20 @@ document.addEventListener('webkitfullscreenchange', onFSchange);
 /* ============================== welcome-screen upload (PDF / PPTX) ============================== */
 // PDF/PPTX import happens ONLY here, before fullscreen is entered, so the native
 // file dialog never has to fight with fullscreen — there is nothing to suppress.
+const welcomeNoticeEl=$('#sb-welcome-notice'), welcomeNoticeText=$('#sb-welcome-notice-text');
+function showWelcomeNotice(html){ welcomeNoticeText.innerHTML=html; welcomeNoticeEl.classList.add('show'); }
+function hideWelcomeNotice(){ welcomeNoticeEl.classList.remove('show'); }
+$('#sb-welcome-notice-close').addEventListener('click',hideWelcomeNotice);
 function startWithFile(f){
   if(!f) return;
   const n=(f.name||'').toLowerCase();
-  if(!(n.endsWith('.pdf')||n.endsWith('.ppt')||n.endsWith('.pptx'))){
-    toast('Only PDF and PowerPoint files are supported here'); return;
+  if(n.endsWith('.ppt')){
+    showWelcomeNotice('<b>Old PowerPoint (97-2003 .ppt) isn\'t supported.</b> That\'s the legacy binary format — this board can only read modern <b>.pptx</b>. In PowerPoint, use <b>File → Save As</b> and pick <b>PowerPoint Presentation (.pptx)</b> (or <b>PDF</b>), then import that file instead.');
+    return;
+  }
+  hideWelcomeNotice();
+  if(!(n.endsWith('.pdf')||n.endsWith('.pptx'))){
+    showWelcomeNotice('<b>Unsupported file type.</b> Only PDF and modern PowerPoint (.pptx) files can be imported here.'); return;
   }
   $('#sb-welcome').classList.add('hide');
   try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
