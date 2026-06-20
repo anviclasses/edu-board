@@ -39,7 +39,9 @@ var MARKUP = `
       <div class="sb-mark">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v11H3z"/><path d="M8 20h8M12 16v4"/></svg>
       </div>
+      <div><b>Smartboard</b><span>Teaching canvas</span></div>
     </div>
+    <div class="sb-sep"></div>
     <div class="sb-sep"></div>
     <button class="sb-btn" id="sb-prev" title="Previous page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div id="sb-pagelbl">1 / 1</div>
@@ -125,7 +127,6 @@ var MARKUP = `
   </div>
 
   <div id="sb-toast"></div>
-  <div id="sb-barshint">Double-tap the board to show toolbars</div>
   <div id="sb-load"><div class="sb-spin"></div><div id="sb-load-txt">Loading…</div></div>
 
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
@@ -182,13 +183,13 @@ function boot(host){
   var ASPECT = parseAspect(host.getAttribute('data-aspect'));
   var MINH = parseInt(host.getAttribute('data-min-height')||'360',10) || 360;
   var MAXH = parseInt(host.getAttribute('data-max-height')||'0',10) || 0;
-  function isHostFS(){ return (document.fullscreenElement===host)||(document.webkitFullscreenElement===host)||host.classList.contains('sb-fakefs'); }
+  function isHostFS(){ return (document.fullscreenElement===host)||(document.webkitFullscreenElement===host); }
   function applyHeight(){
     if(isHostFS()) return;            // in fullscreen the :fullscreen CSS fills the screen
     if(fixedH){ var v=fixedH; if(/^[0-9]+$/.test(v)) v=v+'px'; if(host.style.height!==v) host.style.height=v; return; }
     var w = host.clientWidth || (host.getBoundingClientRect&&host.getBoundingClientRect().width) || 0;
     if(!w) return;
-    var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 800;
+    var vh = window.innerHeight || 800;
     var max = MAXH || Math.min(900, Math.round(vh*0.86));
     var hgt = Math.max(MINH, Math.min(max, Math.round(w/ASPECT)));
     var px = hgt+'px';
@@ -210,7 +211,6 @@ const $=s=>root.querySelector(s);
 const wrap=$('#sb-board-wrap'), cv=$('#sb-canvas'), ov=$('#sb-overlay');
 const ctx=cv.getContext('2d'), octx=ov.getContext('2d');
 const hint=$('#sb-hint'), toastEl=$('#sb-toast'), loadEl=$('#sb-load'), loadTxt=$('#sb-load-txt');
-const barsHintEl=$('#sb-barshint');
 const ta=$('#sb-textedit');
 
 /* ============================== state ============================== */
@@ -241,11 +241,6 @@ function resize(){
   render();
 }
 window.addEventListener('resize',resize); if(window.ResizeObserver){try{new ResizeObserver(()=>resize()).observe(wrap);}catch(_){ }}
-// Orientation flips and mobile browser-chrome resizing (address bar / virtual
-// keyboard show or hide) don't always trigger a timely 'resize' event on
-// phones and tablets — listen on these too so the board re-fits everywhere.
-window.addEventListener('orientationchange',()=>{setTimeout(resize,60);setTimeout(resize,260);});
-if(window.visualViewport){window.visualViewport.addEventListener('resize',resize);window.visualViewport.addEventListener('scroll',resize);}
 
 /* ============================== coords ============================== */
 function boardPt(e){
@@ -465,7 +460,6 @@ function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').dis
 const pointers=new Map();
 let drawId=null, gesturing=false, gLast=null;
 let startPt=null, panStart=null, moveOff=null, resizing=false;
-let lastTrivialTap=null; // {t, obj} — set when a pen/marker tap left only a trivial dot, so a following double-tap can retract it
 
 function pressure(e){if(e.pointerType==='mouse'||!e.pressure)return 0.5;return e.pressure;}
 
@@ -538,11 +532,7 @@ function endPointer(e){
   if(e.pointerId!==drawId)return;
   drawId=null;
   if(panStart){panStart=null;return;}
-  if((tool==='pen'||tool==='marker')&&live){
-    const isTrivialDot = live.pts.length<2 || live.pts.every(p=>Math.hypot(p.x-live.pts[0].x,p.y-live.pts[0].y)<1.5);
-    pushUndo(); page().objs.push(live); live=null; render();
-    lastTrivialTap = isTrivialDot ? {t:performance.now(), obj:page().objs[page().objs.length-1]} : null;
-  }
+  if((tool==='pen'||tool==='marker')&&live){pushUndo();page().objs.push(live);live=null;render();}
   else if(tool==='shape'&&live){
     if(Math.hypot(live.x2-live.x1,live.y2-live.y1)>3){pushUndo();page().objs.push(live);}
     live=null;render();
@@ -559,20 +549,6 @@ function moveObj(o,dx,dy){
   else{o.x+=dx;o.y+=dy;}
 }
 
-/* ---------- shared zoom helper ----------
-   Every zoom interaction (toolbar buttons, +/-/0 keys, Ctrl/Cmd+wheel,
-   and two-finger pinch) scales around the centre of the visible screen,
-   not the cursor or finger position — so the board never drifts off to
-   one side while zooming on any device. */
-function screenCenter(){ return {x:cv.clientWidth/2, y:cv.clientHeight/2}; }
-function applyZoom(targetScale){
-  const ns=Math.max(.2,Math.min(8,targetScale));
-  const c=screenCenter();
-  view.x=c.x-(c.x-view.x)*(ns/view.scale);
-  view.y=c.y-(c.y-view.y)*(ns/view.scale);
-  view.scale=ns;
-}
-
 /* ---------- gestures (pinch / two-finger pan) ---------- */
 function gestureState(){
   const p=[...pointers.values()];
@@ -581,12 +557,12 @@ function gestureState(){
 function doGesture(){
   const g=gestureState(); if(!gLast){gLast=g;return;}
   leaveAutofit();
-  // Two-finger drag still pans normally...
+  const r=cv.getBoundingClientRect();
   view.x+=g.mx-gLast.mx; view.y+=g.my-gLast.my;
-  // ...but the pinch zoom itself is always anchored to the screen centre.
   if(gLast.d>0){
-    const f=g.d/gLast.d;
-    applyZoom(view.scale*f);
+    const f=g.d/gLast.d; const ns=Math.max(.2,Math.min(8,view.scale*f));
+    const fx=g.mx-r.left, fy=g.my-r.top;
+    view.x=fx-(fx-view.x)*(ns/view.scale); view.y=fy-(fy-view.y)*(ns/view.scale); view.scale=ns;
   }
   gLast=g; render();
 }
@@ -596,9 +572,10 @@ cv.addEventListener('wheel',e=>{
   e.preventDefault();
   if(tool==='spotlight'){spotR=Math.max(50,Math.min(420,spotR-e.deltaY*0.5));return;}
   leaveAutofit();
+  const r=cv.getBoundingClientRect(), fx=e.clientX-r.left, fy=e.clientY-r.top;
   if(e.ctrlKey||e.metaKey){
-    const f=Math.exp(-e.deltaY*0.0016);
-    applyZoom(view.scale*f);
+    const f=Math.exp(-e.deltaY*0.0016); const ns=Math.max(.2,Math.min(8,view.scale*f));
+    view.x=fx-(fx-view.x)*(ns/view.scale); view.y=fy-(fy-view.y)*(ns/view.scale); view.scale=ns;
   }else{view.x-=e.deltaX;view.y-=e.deltaY;}
   render();
 },{passive:false});
@@ -651,7 +628,6 @@ function setTool(t){
   const showOpacity=(t==='marker');
   $('#sb-opacity').style.display=showOpacity?'':'none';$('#sb-oplabel').style.display=showOpacity?'':'none';$('#sb-opsep').style.display=showOpacity?'':'none';
   $('#sb-props').scrollLeft=0;
-  if(typeof applyBarsVisible==='function') applyBarsVisible();
   cv.style.cursor = t==='select'?'default' : (t==='text'?'text':'crosshair');
   if(t!=='spotlight')lastPointer=lastPointer; // keep
 }
@@ -735,21 +711,16 @@ function popup(anchor, items){
 
 /* ============================== fullscreen & welcome ============================== */
 var fsEl = (typeof host !== 'undefined' && host) ? host : $('#sb-app');
-var fakeFS = false; // true when we're using the CSS fallback instead of the native API
-function nativeFSSupported(){ return !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen); }
 function enterFS(){
-  if(!nativeFSSupported()){ fakeFS=true; fsEl.classList.add('sb-fakefs'); onHostFS(); onFSchange(); return Promise.resolve(); }
   var r = fsEl.requestFullscreen ? fsEl.requestFullscreen()
         : (fsEl.webkitRequestFullscreen ? fsEl.webkitRequestFullscreen() : null);
-  return (r && r.then) ? r.catch(()=>{ fakeFS=true; fsEl.classList.add('sb-fakefs'); onHostFS(); onFSchange(); })
-                       : Promise.resolve();
+  return (r && r.then) ? r : Promise.resolve();
 }
 function exitFS(){
-  if(fakeFS){ fakeFS=false; fsEl.classList.remove('sb-fakefs'); onHostFS(); onFSchange(); return Promise.resolve(); }
   if(document.exitFullscreen) return document.exitFullscreen();
   if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
 }
-function isFS(){ return fakeFS || !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 $('#sb-full').addEventListener('click',()=>{
   if(!isFS()) enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
   else exitFS();
@@ -1041,86 +1012,6 @@ $('#sb-timer-start').addEventListener('click',e=>{tRun=!tRun;e.target.textConten
   if(tRun){tInt=setInterval(()=>{tSec++;tT.textContent=fmt(tSec);},1000);}else clearInterval(tInt);});
 $('#sb-timer-reset').addEventListener('click',()=>{clearInterval(tInt);tRun=false;tSec=0;tT.textContent='00:00';$('#sb-timer-start').textContent='Start';$('#sb-timer-start').style.background='var(--good)';});
 
-/* ============================== toolbar show / hide ============================== */
-// Double-tap (or double-click) the board toggles the top bar, tool dock, and
-// properties bar. While visible, they auto-hide after 5s of inactivity to
-// keep the board clear. Once hidden, ONLY a double-tap brings them back —
-// drawing, panning, or any other canvas interaction never reveals them, so
-// the board stays a clean, uninterrupted workspace until asked for.
-const barEls=[$('#sb-top'),$('#sb-dock'),$('#sb-props')];
-let barsVisible=true, barsAutoHideT=null, barsHintT=null, barsHintShown=false;
-
-function applyBarsVisible(){
-  // Properties bar should only ever reappear if the active tool actually uses it.
-  const propsWanted=['pen','marker','shape','text','eraser'].includes(tool);
-  barEls.forEach(el=>{
-    if(!el)return;
-    const wantedVisible = barsVisible && (el.id!=='sb-props' || propsWanted);
-    el.classList.toggle('sb-bars-hidden',!wantedVisible);
-  });
-}
-function showBarsHintOnce(){
-  if(barsHintShown)return; barsHintShown=true;
-  barsHintEl.classList.add('show');
-  clearTimeout(barsHintT); barsHintT=setTimeout(()=>barsHintEl.classList.remove('show'),2400);
-}
-function setBarsVisible(v){
-  barsVisible=v; applyBarsVisible();
-  if(!v){ clearTimeout(barsAutoHideT); showBarsHintOnce(); }
-  else{ barsHintEl.classList.remove('show'); scheduleAutoHide(); }
-}
-function toggleBars(){ setBarsVisible(!barsVisible); }
-function scheduleAutoHide(){
-  clearTimeout(barsAutoHideT);
-  if(!barsVisible)return;
-  barsAutoHideT=setTimeout(()=>setBarsVisible(false),5000);
-}
-function bumpBarsActivity(){
-  // Only resets the auto-hide clock while bars are already showing — never
-  // brings them back from hidden. That's double-tap's job alone.
-  if(barsVisible) scheduleAutoHide();
-}
-scheduleAutoHide();
-
-// Manual two-tap detection on the canvas (works for mouse, touch, and pen,
-// and avoids fighting the existing dblclick-to-edit-text behaviour below).
-let lastTapT=0, lastTapX=0, lastTapY=0;
-const DBLTAP_MS=320, DBLTAP_PX=28;
-cv.addEventListener('pointerdown',e=>{
-  const now=performance.now();
-  const dx=e.clientX-lastTapX, dy=e.clientY-lastTapY;
-  const isDblTap = now-lastTapT<DBLTAP_MS && Math.hypot(dx,dy)<DBLTAP_PX;
-  if(isDblTap){
-    lastTapT=0; // consume — don't chain into a triple-tap re-trigger
-    // Let an existing double-click-to-edit-text (on a hit text object, in
-    // select mode) take priority over the show/hide toggle.
-    const editingText = tool==='select' && selectHit(boardPt(e).x,boardPt(e).y)?.t==='text';
-    if(editingText) return;
-    // Tap 1 of this pair may have already committed a trivial dot (pen/
-    // marker tools draw on pointerdown/up). Retract it so double-tapping
-    // to toggle the toolbars never leaves an accidental mark behind.
-    if(lastTrivialTap && performance.now()-lastTrivialTap.t<DBLTAP_MS+50 &&
-       page().objs[page().objs.length-1]===lastTrivialTap.obj){
-      undo(); lastTrivialTap=null;
-    }
-    toggleBars();
-    // Prevent this second tap from also starting a stroke/shape/text box —
-    // it's a UI gesture, not a drawing action.
-    e.preventDefault();
-    e.stopImmediatePropagation();
-  } else {
-    lastTapT=now; lastTapX=e.clientX; lastTapY=e.clientY;
-  }
-},{capture:true});
-
-// While bars are visible, real drawing/navigation activity (an actual
-// stroke, pan, zoom, or key press) resets the 5s auto-hide clock. None of
-// this brings hidden bars back — see bumpBarsActivity above.
-cv.addEventListener('pointermove',e=>{ if(drawId!==null||panStart||gesturing) bumpBarsActivity(); },{passive:true});
-cv.addEventListener('wheel',bumpBarsActivity,{passive:true});
-host.addEventListener('keydown',bumpBarsActivity);
-barEls.forEach(el=>{ if(el) el.addEventListener('pointerdown',bumpBarsActivity); });
-
 /* ============================== keyboard ============================== */
 let spaceDown=false;
 host.addEventListener('keydown',e=>{
@@ -1140,7 +1031,7 @@ host.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft')switchPage(cur-1);
 });
 host.addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;cv.style.cursor=tool==='select'?'default':'crosshair';}});
-function zoomBy(f){leaveAutofit();applyZoom(view.scale*f);render();}
+function zoomBy(f){leaveAutofit();const w=cv.clientWidth/2,h=cv.clientHeight/2;const ns=Math.max(.2,Math.min(8,view.scale*f));view.x=w-(w-view.x)*(ns/view.scale);view.y=h-(h-view.y)*(ns/view.scale);view.scale=ns;render();}
 
 /* ============================== helpers ============================== */
 let toastT;
