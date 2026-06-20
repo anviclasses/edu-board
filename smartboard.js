@@ -836,16 +836,29 @@ async function importPDF(f){
 }
 
 /* ---------- PPT (best effort) ---------- */
+// NOTE: PPTXjs only understands the legacy JSZip v2 *synchronous* API
+// (it calls zip.file(name).asText() internally). Loading JSZip v3 from a
+// generic CDN breaks every import immediately, since v3 is promise-based
+// and has no .asText(). We must load PPTXjs's own bundled jszip.min.js
+// (which is pinned to v2), plus its other required helper scripts, in the
+// exact order its docs specify.
 let pptReady=false;
 async function ensurePPT(){
   if(pptReady)return;
   showLoad('Preparing slides engine…');
+  const PPTXJS_BASE='https://cdn.jsdelivr.net/gh/meshesha/PPTXjs@master';
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js');
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-  const css=document.createElement('link');css.rel='stylesheet';css.href='https://cdn.jsdelivr.net/gh/meshesha/PPTXjs@master/css/pptxjs.css';document.head.appendChild(css);
-  await loadScript('https://cdn.jsdelivr.net/gh/meshesha/PPTXjs@master/js/pptxjs.js');
-  await loadScript('https://cdn.jsdelivr.net/gh/meshesha/PPTXjs@master/js/divs2slides.js');
+  // Must be PPTXjs's own jszip.min.js (JSZip v2) — NOT v3, and NOT the cdnjs build.
+  await loadScript(PPTXJS_BASE+'/js/jszip.min.js');
+  await loadScript(PPTXJS_BASE+'/js/filereader.js');
+  await loadScript(PPTXJS_BASE+'/js/d3.min.js');
+  const nvCss=document.createElement('link');nvCss.rel='stylesheet';nvCss.href=PPTXJS_BASE+'/css/nv.d3.min.css';document.head.appendChild(nvCss);
+  await loadScript(PPTXJS_BASE+'/js/nv.d3.min.js');
+  await loadScript(PPTXJS_BASE+'/js/dingbat.js');
+  const css=document.createElement('link');css.rel='stylesheet';css.href=PPTXJS_BASE+'/css/pptxjs.css';document.head.appendChild(css);
+  await loadScript(PPTXJS_BASE+'/js/pptxjs.js');
+  await loadScript(PPTXJS_BASE+'/js/divs2slides.js');
   pptReady=true;
 }
 function until(fn,ms){return new Promise((res,rej)=>{const t0=Date.now();(function chk(){if(fn())return res();if(Date.now()-t0>ms)return rej(new Error('timeout'));setTimeout(chk,150);})();});}
