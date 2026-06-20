@@ -52,6 +52,10 @@ var MARKUP = `
     <button class="sb-btn" id="sb-redo" title="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg></button>
     <div class="sb-sep"></div>
     <button class="sb-btn" id="sb-bg" title="Page background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 3v18"/></svg></button>
+    <div class="sb-sep"></div>
+    <button class="sb-btn" id="sb-zoomout" title="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/></svg></button>
+    <button class="sb-btn" id="sb-zoomfit" title="Fit to screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <button class="sb-btn" id="sb-zoomin" title="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></button>
     <button class="sb-btn" id="sb-export" title="Save / export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg></button>
     <button class="sb-btn" id="sb-full" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
   </div>
@@ -230,6 +234,10 @@ function resize(){
   dpr=Math.max(1,window.devicePixelRatio||1);
   const w=wrap.clientWidth, h=wrap.clientHeight;
   [cv,ov].forEach(c=>{c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);});
+  // Imported PDF/PPTX pages that haven't been manually zoomed/panned stay
+  // fitted to the screen across rotation, fullscreen toggles, and moving
+  // between phone/tablet/desktop — recompute their view for the new size.
+  if(page() && page().bg.type==='image' && page().autofit) fitView();
   render();
 }
 window.addEventListener('resize',resize); if(window.ResizeObserver){try{new ResizeObserver(()=>resize()).observe(wrap);}catch(_){ }}
@@ -498,7 +506,7 @@ cv.addEventListener('pointermove',e=>{
   if(e.pointerId!==drawId)return;
   const b=boardPt(e); lastPointer=b;
 
-  if(panStart){view.x=panStart.vx+(e.clientX-panStart.x);view.y=panStart.vy+(e.clientY-panStart.y);render();return;}
+  if(panStart){leaveAutofit();view.x=panStart.vx+(e.clientX-panStart.x);view.y=panStart.vy+(e.clientY-panStart.y);render();return;}
 
   if((tool==='pen'||tool==='marker')&&live){
     const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];
@@ -548,6 +556,7 @@ function gestureState(){
 }
 function doGesture(){
   const g=gestureState(); if(!gLast){gLast=g;return;}
+  leaveAutofit();
   const r=cv.getBoundingClientRect();
   view.x+=g.mx-gLast.mx; view.y+=g.my-gLast.my;
   if(gLast.d>0){
@@ -562,6 +571,7 @@ function doGesture(){
 cv.addEventListener('wheel',e=>{
   e.preventDefault();
   if(tool==='spotlight'){spotR=Math.max(50,Math.min(420,spotR-e.deltaY*0.5));return;}
+  leaveAutofit();
   const r=cv.getBoundingClientRect(), fx=e.clientX-r.left, fy=e.clientY-r.top;
   if(e.ctrlKey||e.metaKey){
     const f=Math.exp(-e.deltaY*0.0016); const ns=Math.max(.2,Math.min(8,view.scale*f));
@@ -658,11 +668,14 @@ $('#sb-opacity').addEventListener('input',e=>opacity=+e.target.value/100);
 /* ============================== pages ============================== */
 function updatePageLbl(){$('#sb-pagelbl').textContent=`${cur+1} / ${pages.length}`;
   $('#sb-prev').disabled=cur===0;$('#sb-next').disabled=cur===pages.length-1;}
-function switchPage(i){if(i<0||i>=pages.length)return;page().view={...view};cur=i;view={...pages[cur].view};selection=null;updatePageLbl();render();}
+function switchPage(i){if(i<0||i>=pages.length)return;page().view={...view};cur=i;view={...pages[cur].view};if(pages[cur].bg.type==='image'&&pages[cur].autofit)fitView();selection=null;updatePageLbl();render();}
 $('#sb-prev').addEventListener('click',()=>switchPage(cur-1));
 $('#sb-next').addEventListener('click',()=>switchPage(cur+1));
 $('#sb-undo').addEventListener('click',undo);
 $('#sb-redo').addEventListener('click',redo);
+$('#sb-zoomin').addEventListener('click',()=>zoomBy(1.15));
+$('#sb-zoomout').addEventListener('click',()=>zoomBy(1/1.15));
+$('#sb-zoomfit').addEventListener('click',()=>{fitView();render();});
 $('#sb-addpage').addEventListener('click',()=>{pushUndo();page().view={...view};pages.splice(cur+1,0,newPage());cur++;view={...page().view};updatePageLbl();render();toast('Blank page added');});
 
 /* ============================== background menu ============================== */
@@ -886,18 +899,25 @@ function addDocPages(list){
   if(!list.length)return; pushUndo();
   const replaceable = pages.length===1 && cur===0 && page().objs.length===0 && page().bg.type!=='image';
   let startIndex;
-  if(replaceable){ page().bg={type:'image',src:list[0].src,w:list[0].w,h:list[0].h}; ensureImg(list[0].src);
-    startIndex=0; list.slice(1).forEach((d,i)=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};ensureImg(d.src);pages.push(p);}); }
-  else{ list.forEach(d=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};ensureImg(d.src);pages.push(p);});
+  if(replaceable){ page().bg={type:'image',src:list[0].src,w:list[0].w,h:list[0].h}; page().autofit=true; ensureImg(list[0].src);
+    startIndex=0; list.slice(1).forEach((d,i)=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};p.autofit=true;ensureImg(d.src);pages.push(p);}); }
+  else{ list.forEach(d=>{const p=newPage();p.bg={type:'image',src:d.src,w:d.w,h:d.h};p.autofit=true;ensureImg(d.src);pages.push(p);});
     startIndex=pages.length-list.length; }
   cur=startIndex; fitView(); pages[cur].view={...view}; updatePageLbl(); render();
 }
+// Recomputes the view so an imported page (PDF/PPTX image) fits fully and
+// centred inside whatever screen space is currently available — phone,
+// tablet, desktop, portrait or landscape, windowed or fullscreen.
 function fitView(){
   const pg=page(); if(pg.bg.type!=='image'){view={scale:1,x:0,y:0};return;}
   const w=cv.clientWidth,h=cv.clientHeight; const m=0.94;
   const s=Math.min(w*m/pg.bg.w, h*m/pg.bg.h);
   view={scale:s, x:(w-pg.bg.w*s)/2, y:(h-pg.bg.h*s)/2};
+  pg.autofit=true; // mark this page as "fit to screen" so resize/rotate/fullscreen keep it fitted
 }
+// Any manual zoom or pan on the current page takes it out of auto-fit mode,
+// so a later resize won't silently snap their view back to fit.
+function leaveAutofit(){ const pg=page(); if(pg) pg.autofit=false; }
 
 /* ============================== export ============================== */
 function download(blobOrUrl,name){const a=document.createElement('a');a.download=name;a.href=(blobOrUrl instanceof Blob)?URL.createObjectURL(blobOrUrl):blobOrUrl;document.body.appendChild(a);a.click();a.remove();if(blobOrUrl instanceof Blob)setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
@@ -1010,7 +1030,7 @@ host.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft')switchPage(cur-1);
 });
 host.addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;cv.style.cursor=tool==='select'?'default':'crosshair';}});
-function zoomBy(f){const w=cv.clientWidth/2,h=cv.clientHeight/2;const ns=Math.max(.2,Math.min(8,view.scale*f));view.x=w-(w-view.x)*(ns/view.scale);view.y=h-(h-view.y)*(ns/view.scale);view.scale=ns;render();}
+function zoomBy(f){leaveAutofit();const w=cv.clientWidth/2,h=cv.clientHeight/2;const ns=Math.max(.2,Math.min(8,view.scale*f));view.x=w-(w-view.x)*(ns/view.scale);view.y=h-(h-view.y)*(ns/view.scale);view.scale=ns;render();}
 
 /* ============================== helpers ============================== */
 let toastT;
