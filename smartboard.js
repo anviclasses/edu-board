@@ -42,7 +42,6 @@ var MARKUP = `
       <div><b>Smartboard</b><span>Teaching canvas</span></div>
     </div>
     <div class="sb-sep"></div>
-    <button class="sb-btn" id="sb-open" title="Open file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="d-lbl">Open</span></button>
     <div class="sb-sep"></div>
     <button class="sb-btn" id="sb-prev" title="Previous page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div id="sb-pagelbl">1 / 1</div>
@@ -69,7 +68,6 @@ var MARKUP = `
     <button class="sb-tool" data-tool="laser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="tip">Laser pointer <kbd>L</kbd></span></button>
     <button class="sb-tool" data-tool="spotlight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg><span class="tip">Spotlight <kbd>O</kbd></span></button>
     <button class="sb-tool" id="sb-shadebtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="1"/><path d="M3 14h18M3 18h18" opacity=".5"/></svg><span class="tip">Screen shade</span></button>
-    <button class="sb-tool" id="sb-imgbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span class="tip">Place image</span></button>
     <button class="sb-tool" id="sb-webbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg><span class="tip">Web lookup</span></button>
     <button class="sb-tool" id="sb-timerbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span class="tip">Timer</span></button>
     <div class="sb-dock-sep"></div>
@@ -127,23 +125,20 @@ var MARKUP = `
   <div id="sb-toast"></div>
   <div id="sb-load"><div class="sb-spin"></div><div id="sb-load-txt">Loading…</div></div>
 
-  <input type="file" id="sb-file" accept=".pdf,.ppt,.pptx,image/*" class="sb-hidden">
-  <input type="file" id="sb-imgfile" accept="image/*" class="sb-hidden">
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
 
   <!-- FILE PICKER (in-board overlay — keeps fullscreen) -->
   <div id="sb-picker">
     <div id="sb-picker-card">
       <button id="sb-picker-close" class="sb-btn" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-      <h2 id="sb-picker-title">Open file</h2>
+      <h2 id="sb-picker-title">Open board</h2>
       <div id="sb-drop">
         <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
-        <div class="sb-drop-main">Drag &amp; drop a file here</div>
+        <div class="sb-drop-main">Drag &amp; drop a board file here</div>
         <div class="sb-drop-or">or</div>
         <button id="sb-picker-browse">Browse files</button>
-        <div id="sb-picker-accept" class="sb-drop-accept">Accepted: PDF · PowerPoint · Image</div>
+        <div id="sb-picker-accept" class="sb-drop-accept">Accepted: .smartboard file</div>
       </div>
-      <div id="sb-pasteHint" class="sb-drop-paste">Tip: you can also paste an image with <b>Ctrl</b>+<b>V</b></div>
     </div>
   </div>
 
@@ -156,6 +151,14 @@ var MARKUP = `
       <h1>EduBoard</h1>
       <p>Professional teaching smartboard</p>
       <button id="sb-start">Start EduBoard</button>
+      <div class="sb-welcome-or">or upload a file to begin</div>
+      <div id="sb-welcome-drop">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="sb-drop-main">Drag &amp; drop a PDF or PowerPoint</div>
+        <button id="sb-welcome-browse">Browse files</button>
+        <div class="sb-drop-accept">Accepted: PDF · PPT · PPTX</div>
+      </div>
+      <input type="file" id="sb-welcome-file" accept=".pdf,.ppt,.pptx" class="sb-hidden">
       <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
     </div>
   </div>
@@ -635,7 +638,6 @@ $('#sb-shapes-menu').querySelectorAll('[data-shape]').forEach(b=>{
 /* tool dots for laser/spotlight/etc colour cue */
 function markActive(id){dock.querySelectorAll('.sb-tool').forEach(b=>{if(!b.dataset.tool)b.classList.remove('active');});if(id)$(id).classList.add('active');}
 $('#sb-shadebtn').addEventListener('click',()=>toggleShade());
-$('#sb-imgbtn').addEventListener('click',()=>pickFile('image'));
 $('#sb-webbtn').addEventListener('click',()=>toggleWeb());
 $('#sb-timerbtn').addEventListener('click',()=>toggleTimer());
 $('#sb-clear').addEventListener('click',()=>{if(page().objs.length){pushUndo();page().objs=[];render();toast('Page cleared');}});
@@ -678,7 +680,7 @@ const exMenu=popup($('#sb-export'),[
   {label:'Save page as image',act:()=>{exportPNG();exMenu.hide();}},
   {label:'Export all pages as PDF',act:()=>{exportPDF();exMenu.hide();}},
   {label:'Save board file',act:()=>{saveBoard();exMenu.hide();}},
-  {label:'Open board file',act:()=>{exMenu.hide();pickFile('board');}},
+  {label:'Open board file',act:()=>{exMenu.hide();pickFile();}},
 ]);
 
 function popup(anchor, items){
@@ -716,27 +718,41 @@ function onFSchange(){
 }
 document.addEventListener('fullscreenchange', onFSchange);
 document.addEventListener('webkitfullscreenchange', onFSchange);
-// Opening a native file dialog can drop fullscreen on some browsers. So the file
-// buttons open an in-board overlay (drag-drop / paste keep fullscreen); the native
-// dialog is only used by the explicit "Browse" fallback, with re-enter protection.
+
+/* ============================== welcome-screen upload (PDF / PPTX) ============================== */
+// PDF/PPTX import happens ONLY here, before fullscreen is entered, so the native
+// file dialog never has to fight with fullscreen — there is nothing to suppress.
+function startWithFile(f){
+  if(!f) return;
+  const n=(f.name||'').toLowerCase();
+  if(!(n.endsWith('.pdf')||n.endsWith('.ppt')||n.endsWith('.pptx'))){
+    toast('Only PDF and PowerPoint files are supported here'); return;
+  }
+  $('#sb-welcome').classList.add('hide');
+  try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
+  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+  if(n.endsWith('.pdf')) importPDF(f); else importPPT(f);
+}
+(function(){
+  const wdrop=$('#sb-welcome-drop'), wfile=$('#sb-welcome-file');
+  $('#sb-welcome-browse').addEventListener('click',e=>{ e.stopPropagation(); wfile.click(); });
+  wfile.addEventListener('change',e=>{ const f=e.target.files[0]; e.target.value=''; if(f) startWithFile(f); });
+  ['dragenter','dragover'].forEach(t=>wdrop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();wdrop.classList.add('drag');}));
+  ['dragleave','dragend'].forEach(t=>wdrop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();wdrop.classList.remove('drag');}));
+  wdrop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();wdrop.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)startWithFile(f);});
+})();
+
+/* ============================== open-board overlay picker ============================== */
+// Opening a native file dialog can drop fullscreen on some browsers. The "Open
+// board" picker's drag-drop keeps fullscreen; the native dialog is only used by
+// the explicit "Browse" fallback, with re-enter protection.
 var fileDialogActive=false;
-var PICK={
-  file:  {title:'Open file',   accept:'PDF · PowerPoint · Image', inp:'#sb-file',     route:function(f){routeFile(f);}},
-  image: {title:'Place image', accept:'PNG · JPG · GIF · WebP',    inp:'#sb-imgfile',  route:function(f){placeImage(f);}},
-  board: {title:'Open board',  accept:'.smartboard file',         inp:'#sb-loadfile', route:function(f){openBoard(f);}}
-};
-var curPick='file';
-function pickFile(kind){
-  curPick = PICK[kind] ? kind : 'file';
-  var p=PICK[curPick];
-  $('#sb-picker-title').textContent=p.title;
-  $('#sb-picker-accept').textContent='Accepted: '+p.accept;
-  $('#sb-pasteHint').style.display=(curPick==='board')?'none':'';
+function pickFile(){
   $('#sb-drop').classList.remove('drag');
   $('#sb-picker').classList.add('open');
 }
 function closePicker(){ $('#sb-picker').classList.remove('open'); }
-function handlePicked(f){ if(!f)return; var p=PICK[curPick]; closePicker(); p.route(f); }
+function handlePicked(f){ if(!f)return; closePicker(); openBoard(f); }
 // native OS dialog fallback — keeps the welcome suppression + re-enters fullscreen
 function nativeBrowse(inp){
   if(!inp) return;
@@ -760,20 +776,16 @@ function nativeBrowse(inp){
   var pk=$('#sb-picker'), drop=$('#sb-drop');
   $('#sb-picker-close').addEventListener('click',closePicker);
   pk.addEventListener('click',e=>{ if(e.target===pk) closePicker(); });
-  $('#sb-picker-browse').addEventListener('click',()=>nativeBrowse($(PICK[curPick].inp)));
+  $('#sb-picker-browse').addEventListener('click',()=>nativeBrowse($('#sb-loadfile')));
   ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('drag');}));
   ['dragleave','dragend'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');}));
   drop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)handlePicked(f);});
   pk.addEventListener('dragover',e=>{e.preventDefault();});
   pk.addEventListener('drop',e=>{e.preventDefault();var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)handlePicked(f);});
-  document.addEventListener('paste',e=>{
-    if(!pk.classList.contains('open')||curPick==='board')return;
-    var items=(e.clipboardData&&e.clipboardData.items)||[];
-    for(var i=0;i<items.length;i++){ if(items[i].type&&items[i].type.indexOf('image')===0){ var f=items[i].getAsFile(); if(f){e.preventDefault();handlePicked(f);return;} } }
-  });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pk.classList.contains('open'))closePicker(); });
 })();
-/* drop a file anywhere on the board to open it (no dialog, stays fullscreen) */
+/* drop a board file anywhere on the board to restore it (no dialog, stays fullscreen).
+   PDF/PPTX are intentionally NOT accepted here — import those from the welcome screen. */
 (function(){
   var app=$('#sb-app');
   app.addEventListener('dragover',e=>{ var t=e.dataTransfer&&e.dataTransfer.types; if(t&&Array.prototype.indexOf.call(t,'Files')>-1) e.preventDefault(); });
@@ -782,7 +794,8 @@ function nativeBrowse(inp){
     var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f)return;
     e.preventDefault();
     var n=(f.name||'').toLowerCase();
-    if(n.endsWith('.smartboard')||n.endsWith('.json')) openBoard(f); else routeFile(f);
+    if(n.endsWith('.smartboard')||n.endsWith('.json')) openBoard(f);
+    else toast('Import a PDF or PowerPoint from the welcome screen (exit fullscreen first)');
   });
 })();
 $('#sb-start').addEventListener('click',()=>{
@@ -792,32 +805,8 @@ $('#sb-start').addEventListener('click',()=>{
   enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
 });
 
-/* ============================== file open ============================== */
-$('#sb-open').addEventListener('click',()=>pickFile('file'));
-$('#sb-file').addEventListener('change',e=>{const f=e.target.files[0];if(f)routeFile(f);closePicker();e.target.value='';});
-$('#sb-imgfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)placeImage(f);closePicker();e.target.value='';});
+/* ============================== board file open ============================== */
 $('#sb-loadfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)openBoard(f);closePicker();e.target.value='';});
-
-function routeFile(f){
-  const n=f.name.toLowerCase();
-  if(n.endsWith('.pdf'))importPDF(f);
-  else if(n.endsWith('.ppt')||n.endsWith('.pptx'))importPPT(f);
-  else if(f.type.startsWith('image/'))fileToURL(f).then(src=>{const im=new Image();im.onload=()=>{addDocPages([{src,w:im.naturalWidth,h:im.naturalHeight}]);};im.src=src;});
-  else toast('Unsupported file type');
-}
-function fileToURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});}
-
-function placeImage(f){
-  fileToURL(f).then(src=>{const im=new Image();im.onload=()=>{
-    pushUndo();
-    const vr=visibleRect(); const maxW=vr.w*0.5; let w=im.naturalWidth,h=im.naturalHeight;
-    if(w>maxW){h*=maxW/w;w=maxW;}
-    const x=vr.x+(vr.w-w)/2, y=vr.y+(vr.h-h)/2;
-    ensureImg(src); page().objs.push({t:'image',src,x,y,w,h});
-    setTool('select'); dock.querySelector('[data-tool="select"]').classList.add('active');
-    selection=page().objs[page().objs.length-1]; render(); toast('Image placed — drag to move, corner to resize');
-  };im.src=src;});
-}
 
 /* ---------- PDF ---------- */
 let pdfLib=false;
@@ -1019,7 +1008,7 @@ function hideLoad(){loadEl.classList.remove('show');}
 /* ============================== boot ============================== */
 resize(); updatePageLbl(); updateUndo(); setTool('pen');
 // expose minimal API for embedders
-var _api={ open:()=>pickFile('file'), addPage:()=>$('#sb-addpage').click(), root:root, host:host };
+var _api={ open:()=>pickFile(), addPage:()=>$('#sb-addpage').click(), root:root, host:host };
 window.Smartboard=window.Smartboard||{};window.Smartboard.open=_api.open;window.Smartboard.addPage=_api.addPage;(window.Smartboard._instances=window.Smartboard._instances||[]).push(_api);
   /* ==================== end engine ==================== */
 }
