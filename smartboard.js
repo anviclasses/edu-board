@@ -1037,6 +1037,70 @@ function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeo
 function showLoad(m){loadTxt.textContent=m||'Loading…';loadEl.classList.add('show');}
 function hideLoad(){loadEl.classList.remove('show');}
 
+/* ============================== toolbar hide/show (double-tap) ============================== */
+// Inject the "double-tap to restore" hint pill into the board app layer
+(function(){
+  const hintEl = document.createElement('div');
+  hintEl.id = 'sb-ui-hint';
+  hintEl.textContent = 'Double-tap canvas to show toolbars';
+  $('#sb-app').appendChild(hintEl);
+})();
+
+let uiHidden = false;
+
+function toggleUI(){
+  uiHidden = !uiHidden;
+  // Enable animation after first toggle so the initial render has no flash
+  root.classList.add('sb-ui-anim-ready');
+  root.classList.toggle('sb-ui-hidden', uiHidden);
+  toast(uiHidden ? 'Toolbars hidden — double-tap to restore' : 'Toolbars visible');
+}
+
+// --- Double-tap detection on the drawing canvas ---
+// We track the canvas pointerdown events in the capture phase so our
+// double-tap handler runs *before* drawing logic. When a confirmed
+// double-tap is detected we stop propagation so no stroke is started.
+let _dtFirstTime = 0;
+let _dtFirstPt = null;
+const _DT_MS = 320;   // max gap between two taps (ms)
+const _DT_PX = 20;    // max finger movement between taps (px)
+
+function _onDtPointerDown(e){
+  // Ignore pen input and multi-finger gestures
+  if(e.pointerType === 'pen') return;
+  if(pointers.size > 1){ _dtFirstTime = 0; return; }
+
+  const now = performance.now();
+  const cx = e.clientX, cy = e.clientY;
+
+  if(_dtFirstTime > 0 && (now - _dtFirstTime) <= _DT_MS){
+    const moved = _dtFirstPt ? Math.hypot(cx - _dtFirstPt.x, cy - _dtFirstPt.y) : 0;
+    if(moved <= _DT_PX){
+      // Confirmed double-tap — consume this event, toggle toolbars
+      _dtFirstTime = 0;
+      _dtFirstPt = null;
+      e.stopImmediatePropagation();
+      toggleUI();
+      return;
+    }
+  }
+  // Record as potential first tap
+  _dtFirstTime = now;
+  _dtFirstPt = { x: cx, y: cy };
+}
+
+// Capture phase: fires before the existing bubble-phase drawing listeners
+cv.addEventListener('pointerdown', _onDtPointerDown, true);
+
+// Keyboard shortcut: backtick ` or Shift+H to toggle toolbars
+host.addEventListener('keydown', function(e){
+  if(e.target === ta || e.target === urlInp) return;
+  if(e.key === '`' || (e.key === 'H' && e.shiftKey)){
+    e.preventDefault();
+    toggleUI();
+  }
+}, true);
+
 /* ============================== boot ============================== */
 resize(); updatePageLbl(); updateUndo(); setTool('pen');
 // expose minimal API for embedders
