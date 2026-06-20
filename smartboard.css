@@ -283,5 +283,14 @@
 .smartboard-embed{position:relative; overflow:hidden; width:100%; min-height:320px;
   background:#2a2f37; border-radius:12px; -webkit-user-select:none; user-select:none; touch-action:none;}
 .smartboard-embed:focus, .smartboard-embed:focus-visible{outline:none;}
-.smartboard-embed:fullscreen{border-radius:0; width:100%; height:100%;}
-.smartboard-embed:-webkit-full-screen{border-radius:0; width:100%; height:100%;}
+.smartboard-embed:fullscreen{border-radius:0; width:100vw; height:100vh; height:100dvh;}
+.smartboard-embed:-webkit-full-screen{border-radius:0; width:100vw; height:100vh; height:100dvh;}
+/* Fallback "fullscreen" for browsers/webviews where the native Fullscreen API
+   is unavailable or rejects (older iOS Safari, some in-app browsers). Pins the
+   board over the whole real viewport so it still fits the device screen. */
+.smartboard-embed.sb-fakefs{
+  position:fixed !important; inset:0 !important; margin:0 !important;
+  width:100vw !important; height:100vh !important; height:100dvh !important;
+  max-width:none !important; max-height:none !important; min-height:0 !important;
+  border-radius:0 !important; z-index:2147483000;
+}
