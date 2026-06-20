@@ -37,9 +37,10 @@
     max-width:calc(100% - 24px); height:54px;
     overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;
     -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    opacity:1; transition:opacity .22s ease, transform .22s ease; will-change:opacity,transform;
   }
   #sb-top::-webkit-scrollbar{display:none;}
-  .sb-brand{display:flex;align-items:center;gap:9px;padding:0 12px 0 6px;color:var(--txt);}
+  .sb-brand{display:flex;align-items:center;gap:9px;padding:0 6px 0 6px;color:var(--txt);}
   .sb-mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#E89C1F);
     display:grid;place-items:center;color:var(--accent-ink);flex:none;box-shadow:0 2px 8px rgba(244,183,64,.35);}
   .sb-brand b{font-size:14px;letter-spacing:.2px;font-weight:650;}
@@ -65,6 +66,7 @@
     display:flex; flex-direction:row; gap:4px; padding:7px; z-index:40; max-width:calc(100% - 24px);
     overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;
     -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    opacity:1; transition:opacity .22s ease, transform .22s ease; will-change:opacity,transform;
   }
   #sb-dock::-webkit-scrollbar{display:none;}
   .sb-tool{
@@ -91,6 +93,7 @@
     display:flex; flex-direction:row; align-items:center; gap:4px; padding:7px 9px; z-index:40; max-width:calc(100% - 24px);
     overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none;
     -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    opacity:1; transition:opacity .22s ease, transform .22s ease; will-change:opacity,transform;
   }
   #sb-props::-webkit-scrollbar{display:none;}
   #sb-props > *{flex:none;}
@@ -169,6 +172,20 @@
   #sb-toast.show{opacity:.94;transform:translateX(-50%) translateY(0);}
 
   .sb-hidden{display:none !important;}
+
+  /* ---------- Toolbar show/hide (double-tap toggle + 5s auto-hide) ---------- */
+  /* Bars fade out and slide slightly off-canvas + stop intercepting clicks,
+     rather than display:none, so the transition is smooth either direction. */
+  #sb-top.sb-bars-hidden{opacity:0; pointer-events:none; transform:translateX(-50%) translateY(-14px);}
+  #sb-dock.sb-bars-hidden{opacity:0; pointer-events:none; transform:translateX(-50%) translateY(14px);}
+  #sb-props.sb-bars-hidden{opacity:0; pointer-events:none; transform:translateX(-50%) translateY(14px);}
+
+  /* small peek hint shown briefly the first time bars auto-hide, so users
+     know a double-tap on the board brings them back */
+  #sb-barshint{position:absolute; left:50%; bottom:14px; transform:translateX(-50%) translateY(8px);
+    background:#000; color:#fff; padding:8px 14px; border-radius:20px; font-size:12px; font-weight:550;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:39; white-space:nowrap;}
+  #sb-barshint.show{opacity:.92; transform:translateX(-50%) translateY(0);}
 
   /* spinner */
   #sb-load{position:absolute;inset:0;background:rgba(14,17,22,.72);display:none;align-items:center;justify-content:center;
