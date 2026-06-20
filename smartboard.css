@@ -302,6 +302,15 @@
   #sb-welcome-browse{appearance:none; -webkit-appearance:none; border:1px solid var(--edge-2); cursor:pointer; font:inherit; font-size:13px; font-weight:600;
     color:var(--txt); background:var(--panel-2); padding:8px 16px; border-radius:9px; margin-top:2px; transition:border-color .12s ease, background .12s ease;}
   #sb-welcome-drop:hover #sb-welcome-browse, #sb-welcome-browse:hover{border-color:var(--accent); background:#262b35;}
+  #sb-welcome-notice{width:100%; display:none; align-items:flex-start; gap:9px; text-align:left;
+    background:rgba(242,109,109,.1); border:1px solid rgba(242,109,109,.32); border-radius:11px;
+    padding:11px 12px; margin-top:12px; font-size:12.5px; line-height:1.5; color:#ffd6d6;}
+  #sb-welcome-notice.show{display:flex;}
+  #sb-welcome-notice svg{flex:none; margin-top:1px; color:#f26d6d;}
+  #sb-welcome-notice b{color:#fff;}
+  #sb-welcome-notice-close{flex:none; appearance:none; border:0; background:transparent; color:#ffd6d6; opacity:.7;
+    cursor:pointer; padding:2px; margin:-2px -2px -2px 0; line-height:0;}
+  #sb-welcome-notice-close:hover{opacity:1;}
   @keyframes sb-rise{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
   @container sb (max-width:760px){
     #sb-welcome h1{font-size:25px;} #sb-welcome-logo{width:70px;height:70px;}
