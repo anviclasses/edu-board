@@ -647,6 +647,12 @@ cv.addEventListener('wheel',e=>{
     const f=Math.exp(-e.deltaY*0.0016); const ns=Math.max(.2,Math.min(8,view.scale*f));
     view.x=fx-(fx-view.x)*(ns/view.scale); view.y=fy-(fy-view.y)*(ns/view.scale); view.scale=ns;
   }else{view.x-=e.deltaX;view.y-=e.deltaY;}
+  // A pan may be active at the same time (right-click held). Its baseline
+  // was captured at pointerdown and knows nothing about the view change we
+  // just made — without this resync, the next pointermove tick (even a
+  // sub-pixel jitter from a finger resting on the wheel) would snap view.x/y
+  // back toward the pre-zoom position, fighting the zoom and causing jerk.
+  if(panStart){panStart.x=e.clientX;panStart.y=e.clientY;panStart.vx=view.x;panStart.vy=view.y;}
   render();
 },{passive:false});
 
