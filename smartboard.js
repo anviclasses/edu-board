@@ -503,9 +503,18 @@ function eraseAt(x,y,r){
 
 /* ============================== history ============================== */
 function serObj(o){return o.t==='image'?{t:'image',src:o.src,x:o.x,y:o.y,w:o.w,h:o.h}:o;}
-function serAll(){return JSON.stringify(pages.map(p=>({bg:p.bg,view:p.view,objs:p.objs.map(serObj)})));}
+function serAll(){
+  // The page you're currently on may have had its view live-fitted (e.g. an
+  // imported PDF/PPTX page auto-fitting on first visit) without that fitted
+  // view ever being written back into pages[cur].view — only switchPage()
+  // does that, and only when you *leave* a page. Sync it here so every
+  // undo/redo/save snapshot reflects what's actually on screen, not a stale
+  // default (scale:1,x:0,y:0) that makes the page look blank when restored.
+  if(page()) page().view={...view};
+  return JSON.stringify(pages.map(p=>({bg:p.bg,view:p.view,objs:p.objs.map(serObj),autofit:p.autofit})));
+}
 function loadAll(json){
-  pages=JSON.parse(json).map(p=>({bg:p.bg,view:p.view||{scale:1,x:0,y:0},objs:p.objs}));
+  pages=JSON.parse(json).map(p=>({bg:p.bg,view:p.view||{scale:1,x:0,y:0},objs:p.objs,autofit:p.autofit}));
   pages.forEach(p=>{if(p.bg.src)ensureImg(p.bg.src);p.objs.forEach(o=>{if(o.t==='image')ensureImg(o.src);});});
   cur=Math.min(cur,pages.length-1); view=page().view; selection=null;
 }
