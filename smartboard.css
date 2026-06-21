@@ -274,67 +274,46 @@
   @container sb (max-width:760px){ #sb-picker-card{padding:20px 16px 16px;} #sb-drop{padding:20px 12px;} }
 
   /* ---------- Welcome ---------- */
-  /* overflow-y:auto (+ flex-start with auto margins) lets the card scroll
-     into view instead of being silently clipped when the host is shorter
-     than the card's content (e.g. a compact embed height, landscape phones,
-     or the rejection notice making the card taller than usual). */
-  #sb-welcome{position:absolute; inset:0; z-index:300; display:flex; flex-direction:column; align-items:center;
-    justify-content:flex-start; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
+  #sb-welcome{position:absolute; inset:0; z-index:300; display:flex; align-items:center; justify-content:center;
     background:radial-gradient(120% 120% at 50% 0%, #20242c 0%, #15181d 62%, #0f1216 100%);
     padding:20px; text-align:center; -webkit-user-select:none; user-select:none;}
   #sb-welcome.hide{display:none;}
-  #sb-welcome-card{width:100%; max-width:380px; flex:none; display:flex; flex-direction:column; align-items:center;
-    margin:auto 0; min-width:0;
+  #sb-welcome-card{max-width:380px; display:flex; flex-direction:column; align-items:center;
     animation:sb-rise .5s cubic-bezier(.2,.8,.2,1) both;}
-  #sb-welcome-logo{width:82px; height:82px; flex:none; border-radius:22px; display:flex; align-items:center; justify-content:center;
+  #sb-welcome-logo{width:82px; height:82px; border-radius:22px; display:flex; align-items:center; justify-content:center;
     color:var(--accent-ink); background:linear-gradient(160deg,#f7c860,#e6a52e);
     box-shadow:0 12px 34px rgba(244,183,64,.32); margin-bottom:14px;}
   #sb-welcome h1{margin:0; font-size:30px; letter-spacing:.4px; color:#fff; font-weight:700;}
   #sb-welcome p{margin:6px 0 18px; font-size:14px; color:var(--txt-dim);}
   #sb-start{appearance:none; -webkit-appearance:none; border:0; cursor:pointer; font:inherit; font-size:16px; font-weight:650;
-    color:var(--accent-ink); background:var(--accent); padding:14px 30px; border-radius:13px; flex:none;
+    color:var(--accent-ink); background:var(--accent); padding:14px 30px; border-radius:13px;
     box-shadow:0 10px 26px rgba(244,183,64,.3); transition:transform .12s ease, box-shadow .12s ease;}
   #sb-start:hover{transform:translateY(-1px); box-shadow:0 14px 30px rgba(244,183,64,.42);}
   #sb-start:active{transform:translateY(0);}
-  #sb-welcome-hint{margin-top:16px; flex:none; font-size:12px; color:#6b7280;}
+  #sb-welcome-hint{margin-top:16px; font-size:12px; color:#6b7280;}
   #sb-welcome-hint b{color:var(--txt-dim); font-weight:600;}
-  .sb-welcome-or{margin:16px 0 10px; flex:none; font-size:12px; color:#6b7280; display:flex; align-items:center; gap:10px; width:100%;}
+  .sb-welcome-or{margin:16px 0 10px; font-size:12px; color:#6b7280; display:flex; align-items:center; gap:10px; width:100%;}
   .sb-welcome-or::before,.sb-welcome-or::after{content:""; flex:1; height:1px; background:var(--edge);}
-  #sb-welcome-drop{width:100%; flex:none; display:flex; flex-direction:column; align-items:center; gap:7px; text-align:center;
-    border:2px dashed var(--edge-2); border-radius:14px; padding:18px 16px; color:var(--txt-dim); min-width:0;
+  #sb-welcome-drop{width:100%; display:flex; flex-direction:column; align-items:center; gap:7px; text-align:center;
+    border:2px dashed var(--edge-2); border-radius:14px; padding:18px 16px; color:var(--txt-dim);
     transition:border-color .15s ease, background .15s ease;}
   #sb-welcome-drop.drag{border-color:var(--accent); background:rgba(244,183,64,.09); color:var(--txt);}
-  #sb-welcome-drop svg{color:var(--accent); opacity:.9; flex:none;}
-  .sb-drop-main{word-wrap:break-word; overflow-wrap:break-word;}
+  #sb-welcome-drop svg{color:var(--accent); opacity:.9;}
   #sb-welcome-browse{appearance:none; -webkit-appearance:none; border:1px solid var(--edge-2); cursor:pointer; font:inherit; font-size:13px; font-weight:600;
-    color:var(--txt); background:var(--panel-2); padding:8px 16px; border-radius:9px; margin-top:2px; flex:none; transition:border-color .12s ease, background .12s ease;}
+    color:var(--txt); background:var(--panel-2); padding:8px 16px; border-radius:9px; margin-top:2px; transition:border-color .12s ease, background .12s ease;}
   #sb-welcome-drop:hover #sb-welcome-browse, #sb-welcome-browse:hover{border-color:var(--accent); background:#262b35;}
-  #sb-welcome-notice{width:100%; flex:none; display:none; align-items:flex-start; gap:9px; text-align:left; min-width:0;
+  #sb-welcome-notice{width:100%; display:none; align-items:flex-start; gap:9px; text-align:left;
     background:rgba(242,109,109,.1); border:1px solid rgba(242,109,109,.32); border-radius:11px;
     padding:11px 12px; margin-top:12px; font-size:12.5px; line-height:1.5; color:#ffd6d6;}
   #sb-welcome-notice.show{display:flex;}
   #sb-welcome-notice svg{flex:none; margin-top:1px; color:#f26d6d;}
   #sb-welcome-notice b{color:#fff;}
-  #sb-welcome-notice-text{min-width:0; word-wrap:break-word; overflow-wrap:break-word;}
   #sb-welcome-notice-close{flex:none; appearance:none; border:0; background:transparent; color:#ffd6d6; opacity:.7;
     cursor:pointer; padding:2px; margin:-2px -2px -2px 0; line-height:0;}
   #sb-welcome-notice-close:hover{opacity:1;}
   @keyframes sb-rise{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
   @container sb (max-width:760px){
     #sb-welcome h1{font-size:25px;} #sb-welcome-logo{width:70px;height:70px;}
-  }
-  @container sb (max-height:480px){
-    /* short host (e.g. a compact non-fullscreen embed): tighten vertical
-       rhythm so the card is more likely to fit without scrolling at all. */
-    #sb-welcome{padding:14px;}
-    #sb-welcome-logo{width:56px; height:56px; margin-bottom:8px;}
-    #sb-welcome-logo svg{width:28px; height:28px;}
-    #sb-welcome h1{font-size:22px;}
-    #sb-welcome p{margin:4px 0 12px;}
-    #sb-start{padding:10px 24px; font-size:14px;}
-    .sb-welcome-or{margin:12px 0 8px;}
-    #sb-welcome-drop{padding:12px 14px;}
-    #sb-welcome-hint{margin-top:10px;}
   }
 
   /* ---------- Responsive — keyed to the BOARD's own size (container queries) ---------- */
