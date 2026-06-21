@@ -800,12 +800,34 @@ function exitFS(){
 function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 $('#sb-full').addEventListener('click',()=>{
   if(!isFS()) enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
-  else exitFS();
+  else { _exitingFSviaBtn=true; exitFS(); }
 });
+var _exitingFSviaBtn=false;
 function onFSchange(){
   setTimeout(resize,80);
-  if(isFS()) $('#sb-welcome').classList.add('hide');
-  else if(!fileDialogActive) $('#sb-welcome').classList.remove('hide');   // exiting fullscreen returns to welcome
+  if(isFS()){
+    $('#sb-welcome').classList.add('hide');
+  } else {
+    if(_exitingFSviaBtn){
+      // user pressed fullscreen button — just exit fullscreen, stay on board
+      _exitingFSviaBtn=false;
+    } else if(!fileDialogActive){
+      // Esc key or browser exit — only return to welcome if board has no content
+      var hasContent = pages.some(function(p){ return p.objs.length>0 || p.bg.type==='image'; });
+      if(!hasContent) $('#sb-welcome').classList.remove('hide');
+    }
+  }
+  // Update fullscreen button icon & tooltip
+  var btn=$('#sb-full');
+  if(btn){
+    if(isFS()){
+      btn.title='Exit fullscreen';
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 0 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+    } else {
+      btn.title='Fullscreen';
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+    }
+  }
 }
 document.addEventListener('fullscreenchange', onFSchange);
 document.addEventListener('webkitfullscreenchange', onFSchange);
