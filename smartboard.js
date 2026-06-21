@@ -836,32 +836,70 @@ function startWithFile(f){
 }
 // Welcome-screen-only quiz loader. Unlike the in-canvas "Open board file"
 // (which fully restores a saved session, drawings included), this is meant
-// for handing the *same* prepared quiz file to one student after another:
-// it keeps every page's background/content (the quiz itself) exactly as
-// saved, but always clears each page's objs (the drawn strokes/shapes/text)
-// so nothing from a previous student carries over.
+// for handing the *same* prepared quiz to one student after another: the
+// quiz content itself always loads exactly as authored, but the drawing
+// layer (objs) always starts empty, so nothing from a previous student
+// carries over. Two input formats are supported:
+//   A) A SmartBoard board/pages file (top-level array) — its own export.
+//   B) An MCQ-style quiz export (top-level object with a posts[] array of
+//      post_type:'question', e.g. a WordPress quiz-plugin export) — each
+//      question becomes one page, rendered as a worksheet image with the
+//      question text and lettered options. The correct answer / explanation
+//      fields, if present, are intentionally NOT shown on the page, so the
+//      board can be used as a real worksheet rather than spoiling answers.
+function enterAndShowBoard(){
+  $('#sb-welcome').classList.add('hide');
+  try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
+  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+}
 function startWithQuizJSON(f){
   const r=new FileReader();
-  r.onload=()=>{
-    let pageCount;
-    try{
-      const parsed=JSON.parse(r.result);
-      if(!Array.isArray(parsed)||!parsed.length) throw new Error('empty');
-      pageCount=parsed.length;
-    }catch(e){
-      showWelcomeNotice('<b>Invalid quiz file.</b> That .json file isn\'t a SmartBoard quiz/board file.');
+  r.onload=async ()=>{
+    let parsed;
+    try{ parsed=JSON.parse(r.result); }
+    catch(e){ showWelcomeNotice('<b>Invalid quiz file.</b> That .json file could not be read as JSON.'); return; }
+
+    // Format A: SmartBoard's own saved board/pages file.
+    if(Array.isArray(parsed)){
+      if(!parsed.length){ showWelcomeNotice('<b>Empty quiz file.</b> That board file has no pages.'); return; }
+      hideWelcomeNotice();
+      undoStack=[]; redoStack=[];
+      loadAll(r.result, true); // true = keep the quiz content, strip any drawings
+      cur=0; view=page().view; selection=null;
+      updateUndo(); updatePageLbl();
+      enterAndShowBoard();
+      render();
+      toast(`Quiz loaded · ${parsed.length} page${parsed.length>1?'s':''} · ready for drawing`);
       return;
     }
-    hideWelcomeNotice();
-    undoStack=[]; redoStack=[];
-    loadAll(r.result, true); // true = keep the quiz content, strip any drawings
-    cur=0; view=page().view; selection=null;
-    updateUndo(); updatePageLbl();
-    $('#sb-welcome').classList.add('hide');
-    try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
-    enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
-    render();
-    toast(`Quiz loaded · ${pageCount} page${pageCount>1?'s':''} · ready for drawing`);
+
+    // Format B: MCQ-style quiz export.
+    if(parsed && Array.isArray(parsed.posts)){
+      const qs=parsed.posts.filter(p=>p&&p.post_type==='question'&&p.post_status!=='draft');
+      if(!qs.length){ showWelcomeNotice('<b>No questions found.</b> This file doesn\'t contain any quiz questions to import.'); return; }
+      const topicName=(parsed.terms&&parsed.terms[0]&&parsed.terms[0].name)||'';
+      hideWelcomeNotice();
+      enterAndShowBoard();
+      try{
+        showLoad('Preparing quiz…');
+        await ensureH2C();
+        const out=await renderMCQPages(qs,topicName);
+        if(!out.length) throw new Error('no pages rendered');
+        pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
+        out.forEach(d=>ensureImg(d.src));
+        cur=0; fitView(); pages[0].view={...view}; selection=null;
+        undoStack=[]; redoStack=[];
+        updateUndo(); updatePageLbl(); render();
+        toast(`Quiz loaded · ${out.length} question${out.length>1?'s':''} · ready for drawing`);
+      }catch(err){
+        console.error(err);
+        toast('Could not build this quiz — check the file and try again');
+      }
+      hideLoad();
+      return;
+    }
+
+    showWelcomeNotice('<b>Unrecognized quiz format.</b> This .json file doesn\'t match a SmartBoard board file or a supported quiz export.');
   };
   r.onerror=()=>{ showWelcomeNotice('<b>Could not read that file.</b> Please try again.'); };
   r.readAsText(f);
@@ -966,6 +1004,52 @@ async function importPDF(f){
     addDocPages(out); toast(`Loaded ${out.length} page${out.length>1?'s':''}`);
   }catch(err){console.error(err);toast('Could not open this PDF');}
   hideLoad();
+}
+
+/* ---------- MCQ quiz JSON (welcome screen only) ---------- */
+// Reuses the same html2canvas lib the PPT path loads, but doesn't need the
+// rest of the PPTXjs/jQuery stack — just one rasterization call per question.
+let h2cReady=false;
+async function ensureH2C(){
+  if(h2cReady||window.html2canvas){h2cReady=true;return;}
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  h2cReady=true;
+}
+function escapeHtml(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function questionCardHTML(post,i,total,topicName){
+  const mi=post.meta_input||{};
+  const opts=Array.isArray(mi._aimcq_options)?mi._aimcq_options:[];
+  const letters=['A','B','C','D','E','F','G','H'];
+  const optsHtml=opts.length
+    ? opts.map((o,idx)=>`
+        <div style="display:flex;gap:16px;align-items:flex-start;margin:16px 0;padding:14px 18px;border:2px solid #dde3ec;border-radius:12px;">
+          <div style="flex:0 0 34px;height:34px;border-radius:50%;border:2px solid #94a3b8;display:flex;align-items:center;justify-content:center;font:700 17px/1 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}</div>
+          <div style="flex:1;font:400 21px/1.5 'Segoe UI',Arial,sans-serif;color:#1e293b;">${escapeHtml(o.text)}</div>
+        </div>`).join('')
+    : [0,1,2].map(()=>`<div style="margin-top:36px;border-bottom:2px solid #cbd5e1;height:48px;"></div>`).join('');
+  return `<div style="width:1280px;background:#fff;padding:56px 64px;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:26px;">
+      <div style="font:700 14px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName?escapeHtml(topicName):'Quiz'}</div>
+      <div style="font:600 14px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
+    </div>
+    <div style="font:400 25px/1.55 'Segoe UI',Arial,sans-serif;color:#0f172a;">${post.post_content||''}</div>
+    <div>${optsHtml}</div>
+  </div>`;
+}
+async function renderMCQPages(qs,topicName){
+  const holder=document.createElement('div');
+  holder.style.cssText='position:fixed;left:-99999px;top:0;background:#fff;';
+  document.body.appendChild(holder);
+  const out=[];
+  try{
+    for(let i=0;i<qs.length;i++){
+      showLoad(`Building question ${i+1} of ${qs.length}…`);
+      holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName);
+      const c=await window.html2canvas(holder.firstElementChild,{scale:1.5,backgroundColor:'#fff',logging:false});
+      out.push({src:c.toDataURL('image/jpeg',0.88),w:c.width,h:c.height});
+    }
+  }finally{ holder.remove(); }
+  return out;
 }
 
 /* ---------- PPT (best effort) ---------- */
