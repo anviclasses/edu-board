@@ -526,7 +526,7 @@ function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').dis
 /* ============================== pointer / drawing ============================== */
 const pointers=new Map();
 let drawId=null, gesturing=false, gLast=null;
-let startPt=null, panStart=null, moveOff=null, resizing=false;
+let startPt=null, panStart=null, moveOff=null, resizing=false, rightDown=false;
 
 function pressure(e){if(e.pointerType==='mouse'||!e.pressure)return 0.5;return e.pressure;}
 
@@ -543,6 +543,7 @@ cv.addEventListener('pointerdown',e=>{
   drawId=e.pointerId;
   const b=boardPt(e); lastPointer=b;
 
+  if(e.button===2){rightDown=true;panStart={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};return;}
   if(e.button===1||spaceDown){panStart={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};return;}
 
   if(tool==='pen'||tool==='marker'){
@@ -593,6 +594,7 @@ cv.addEventListener('pointermove',e=>{
 });
 
 function endPointer(e){
+  if(e.button===2)rightDown=false;
   if(tool==='spotlight')return;
   pointers.delete(e.pointerId);
   if(gesturing){if(pointers.size<2)gesturing=false;return;}
@@ -609,6 +611,7 @@ function endPointer(e){
 cv.addEventListener('pointerup',endPointer);
 cv.addEventListener('pointercancel',endPointer);
 cv.addEventListener('pointerleave',e=>{if(e.pointerId===drawId&&!live&&!panStart)return;});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
 
 function moveObj(o,dx,dy){
   if(o.t==='path')o.pts.forEach(p=>{p.x+=dx;p.y+=dy;});
@@ -640,7 +643,7 @@ cv.addEventListener('wheel',e=>{
   if(tool==='spotlight'){spotR=Math.max(50,Math.min(420,spotR-e.deltaY*0.5));return;}
   leaveAutofit();
   const r=cv.getBoundingClientRect(), fx=e.clientX-r.left, fy=e.clientY-r.top;
-  if(e.ctrlKey||e.metaKey){
+  if(e.ctrlKey||e.metaKey||rightDown){
     const f=Math.exp(-e.deltaY*0.0016); const ns=Math.max(.2,Math.min(8,view.scale*f));
     view.x=fx-(fx-view.x)*(ns/view.scale); view.y=fy-(fy-view.y)*(ns/view.scale); view.scale=ns;
   }else{view.x-=e.deltaX;view.y-=e.deltaY;}
