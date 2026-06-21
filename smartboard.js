@@ -517,10 +517,9 @@ function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').dis
 /* ============================== pointer / drawing ============================== */
 const pointers=new Map();
 let drawId=null, gesturing=false, gLast=null;
-let swipeNav=null; // three-finger horizontal swipe -> next/previous page (touch devices)
-const SWIPE_PX=64;        // min horizontal travel (px) to count as a page swipe
-const SWIPE_SLOPE=1.4;    // must be this many times more horizontal than vertical
 let startPt=null, panStart=null, moveOff=null, resizing=false;
+// 3-finger swipe state
+let swipe3={active:false,startX:0,triggered:false};
 
 function pressure(e){if(e.pointerType==='mouse'||!e.pressure)return 0.5;return e.pressure;}
 
@@ -531,18 +530,17 @@ cv.addEventListener('pointerdown',e=>{
   pointers.set(e.pointerId,{cx:e.clientX,cy:e.clientY});
   if(pointers.size===2){ // start gesture, cancel any draw
     if(drawId!==null){live=null;drawId=null;}
-    gesturing=true;gLast=gestureState();
-    swipeNav=null; // a 2nd finger landing cancels any pending 3-finger swipe
-    return;
+    gesturing=true;gLast=gestureState();return;
   }
-  if(pointers.size===3){ // three-finger swipe = next/previous page (touch equivalent of ←/→)
-    if(gesturing){gesturing=false;} // a 3rd finger during a pinch hands off to swipe-nav
+  if(pointers.size===3){ // 3-finger swipe — cancel draw/gesture, arm swipe detection
     if(drawId!==null){live=null;drawId=null;}
-    const p=[...pointers.values()];
-    swipeNav={x0:(p[0].cx+p[1].cx+p[2].cx)/3,y0:(p[0].cy+p[1].cy+p[2].cy)/3,fired:false};
+    gesturing=false;
+    const pts=[...pointers.values()];
+    const avgX=pts.reduce((s,p)=>s+p.cx,0)/pts.length;
+    swipe3={active:true,startX:avgX,triggered:false};
     return;
   }
-  if(pointers.size>3){swipeNav=null;return;}
+  if(pointers.size>3)return;
   drawId=e.pointerId;
   const b=boardPt(e); lastPointer=b;
 
@@ -572,14 +570,14 @@ cv.addEventListener('pointerdown',e=>{
 cv.addEventListener('pointermove',e=>{
   if(tool==='spotlight'){lastPointer=boardPt(e);return;}
   if(pointers.has(e.pointerId))pointers.set(e.pointerId,{cx:e.clientX,cy:e.clientY});
-  if(swipeNav&&pointers.size===3){
-    const p=[...pointers.values()];
-    const mx=(p[0].cx+p[1].cx+p[2].cx)/3, my=(p[0].cy+p[1].cy+p[2].cy)/3;
-    const dx=mx-swipeNav.x0, dy=my-swipeNav.y0;
-    if(!swipeNav.fired && Math.abs(dx)>=SWIPE_PX && Math.abs(dx)>=Math.abs(dy)*SWIPE_SLOPE){
-      swipeNav.fired=true;
-      if(dx<0){ if(cur<pages.length-1){switchPage(cur+1);} else toast('Last page'); }
-      else{ if(cur>0){switchPage(cur-1);} else toast('First page'); }
+  if(swipe3.active&&pointers.size>=3){
+    const pts=[...pointers.values()];
+    const avgX=pts.reduce((s,p)=>s+p.cx,0)/pts.length;
+    const dx=avgX-swipe3.startX;
+    const THRESHOLD=cv.clientWidth*0.18; // 18% of canvas width
+    if(!swipe3.triggered&&Math.abs(dx)>THRESHOLD){
+      swipe3.triggered=true;
+      if(dx<0) switchPage(cur+1); else switchPage(cur-1);
     }
     return;
   }
@@ -609,7 +607,7 @@ cv.addEventListener('pointermove',e=>{
 function endPointer(e){
   if(tool==='spotlight')return;
   pointers.delete(e.pointerId);
-  if(swipeNav){ if(pointers.size<3) swipeNav=null; return; }
+  if(swipe3.active&&pointers.size<3){swipe3.active=false;}
   if(gesturing){if(pointers.size<2)gesturing=false;return;}
   if(e.pointerId!==drawId)return;
   drawId=null;
@@ -809,52 +807,11 @@ $('#sb-full').addEventListener('click',()=>{
 });
 function onFSchange(){
   setTimeout(resize,80);
-  if(isFS()){
-    $('#sb-welcome').classList.add('hide');
-    _disarmAutoFS();
-    try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
-  }else if(!fileDialogActive){
-    $('#sb-welcome').classList.remove('hide');   // exiting fullscreen returns to welcome
-    _armAutoFS();                                 // next tap/click/key anywhere re-enters fullscreen
-  }
+  if(isFS()) $('#sb-welcome').classList.add('hide');
+  else if(!fileDialogActive) $('#sb-welcome').classList.remove('hide');   // exiting fullscreen returns to welcome
 }
 document.addEventListener('fullscreenchange', onFSchange);
 document.addEventListener('webkitfullscreenchange', onFSchange);
-
-/* ---------- always-fullscreen: this board is meant to live in fullscreen.
-   Browsers only grant requestFullscreen() in direct response to a genuine
-   user gesture, so it can't be forced silently on load. Instead we:
-   1) try once immediately on boot (works in PWA/kiosk/already-gestured contexts)
-   2) arm a one-time, capture-phase listener for the very first user
-      interaction anywhere on the page (click/touchstart/keydown) that
-      immediately requests fullscreen — so any tap/click gets the board
-      into fullscreen without the user needing to find the Start button
-   3) re-arm that listener any time fullscreen is exited, so fullscreen
-      keeps re-asserting itself as the board's default state            ---------- */
-var _autoFSArmed=false;
-function _autoFSHandler(e){
-  if(isFS()||fileDialogActive)return;
-  // Only react to interactions that land on this board instance — important
-  // when multiple boards are embedded on the same page, so one board can't
-  // hijack fullscreen for a click that happened inside a different board
-  // (or elsewhere on the host page).
-  var t=e.target;
-  if(!(host===t || (host.contains && host.contains(t)))) return;
-  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
-}
-function _armAutoFS(){
-  if(_autoFSArmed)return; _autoFSArmed=true;
-  document.addEventListener('pointerdown',_autoFSHandler,true);
-  document.addEventListener('keydown',_autoFSHandler,true);
-}
-function _disarmAutoFS(){
-  if(!_autoFSArmed)return; _autoFSArmed=false;
-  document.removeEventListener('pointerdown',_autoFSHandler,true);
-  document.removeEventListener('keydown',_autoFSHandler,true);
-}
-_armAutoFS();
-// Best-effort immediate attempt (no-ops quietly where a gesture is required).
-enterFS().then(()=>setTimeout(resize,80)).catch(()=>{});
 
 /* ============================== welcome-screen upload (PDF / PPTX) ============================== */
 // PDF/PPTX import happens ONLY here, before fullscreen is entered, so the native
