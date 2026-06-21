@@ -509,7 +509,7 @@ function loadAll(json){
   pages.forEach(p=>{if(p.bg.src)ensureImg(p.bg.src);p.objs.forEach(o=>{if(o.t==='image')ensureImg(o.src);});});
   cur=Math.min(cur,pages.length-1); view=page().view; selection=null;
 }
-function pushUndo(){if(page())page().view={...view};undoStack.push(serAll());if(undoStack.length>50)undoStack.shift();redoStack=[];updateUndo();}
+function pushUndo(){undoStack.push(serAll());if(undoStack.length>50)undoStack.shift();redoStack=[];updateUndo();}
 function undo(){if(!undoStack.length)return;redoStack.push(serAll());loadAll(undoStack.pop());updateUndo();render();updatePageLbl();}
 function redo(){if(!redoStack.length)return;undoStack.push(serAll());loadAll(redoStack.pop());updateUndo();render();updatePageLbl();}
 function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').disabled=!redoStack.length;}
@@ -761,7 +761,8 @@ function popup(anchor, items){
   items.forEach(it=>{const b=document.createElement('button');b.className='sb-btn';b.style.justifyContent='flex-start';b.style.width='100%';b.style.height='38px';b.textContent=it.label;b.addEventListener('click',it.act);el.appendChild(b);});
   $('#sb-app').appendChild(el);
   const api={show(){const a=$('#sb-app').getBoundingClientRect();const r=anchor.getBoundingClientRect();el.style.display='flex';el.style.top=(r.bottom-a.top+8)+'px';el.style.left=Math.max(6,Math.min(r.left-a.left,a.width-210))+'px';},hide(){el.style.display='none';}};
-  anchor.addEventListener('click',e=>{e.stopPropagation();const open=el.style.display==='flex';document.querySelectorAll('.sb-glass').forEach(()=>{});api[open?'hide':'show']();});
+  popup._all=popup._all||[]; popup._all.push(api);
+  anchor.addEventListener('click',e=>{e.stopPropagation();const open=el.style.display==='flex';popup._all.forEach(p=>{if(p!==api)p.hide();});api[open?'hide':'show']();});
   document.addEventListener('click',()=>api.hide());
   el.addEventListener('click',e=>e.stopPropagation());
   return api;
@@ -1288,7 +1289,9 @@ host.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey)return;
   const map={p:'pen',h:'marker',e:'eraser',s:'shape',t:'text',v:'select',l:'laser',o:'spotlight'};
   const k=e.key.toLowerCase();
-  if(map[k]&&!e.shiftKey&&!e.altKey){setTool(map[k]);const btn=dock.querySelector(`[data-tool="${map[k]}"]`);if(btn){dock.querySelectorAll('.sb-tool').forEach(b=>{if(b.dataset.tool)b.classList.remove('active')});btn.classList.add('active');}}
+  // Shift+<letter> is reserved (e.g. Shift+H toggles toolbars below) — don't
+  // also let it fall through to the plain-letter tool shortcuts.
+  if(map[k] && !e.shiftKey){setTool(map[k]);const btn=dock.querySelector(`[data-tool="${map[k]}"]`);if(btn){dock.querySelectorAll('.sb-tool').forEach(b=>{if(b.dataset.tool)b.classList.remove('active')});btn.classList.add('active');}}
   if((e.key==='Delete'||e.key==='Backspace')&&selection){pushUndo();page().objs=page().objs.filter(o=>o!==selection);selection=null;render();}
   if(e.key==='='||e.key==='+'){zoomBy(1.15);}
   if(e.key==='-'){zoomBy(1/1.15);}
@@ -1360,9 +1363,6 @@ function _onDtPointerDown(e){
       // Cancel tap-2 stroke before it starts
       e.stopImmediatePropagation();
       live = null;
-
-      // Cancel any text box tap-1 opened (Text tool) before it's committed
-      if(ta.style.display==='block'){ editTarget=null; ta.value=''; ta.style.display='none'; }
 
       // Roll back the dot that tap-1 may have committed
       // undoStack grows by 1 when a stroke is pushed; if it did, pop it.
