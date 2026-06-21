@@ -1022,18 +1022,18 @@ function questionCardHTML(post,i,total,topicName){
   const letters=['A','B','C','D','E','F','G','H'];
   const optsHtml=opts.length
     ? opts.map((o,idx)=>`
-        <div style="display:flex;gap:16px;align-items:flex-start;margin:16px 0;padding:14px 18px;border:2px solid #dde3ec;border-radius:12px;">
-          <div style="flex:0 0 34px;height:34px;border-radius:50%;border:2px solid #94a3b8;display:flex;align-items:center;justify-content:center;font:700 17px/1 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}</div>
-          <div style="flex:1;font:400 21px/1.5 'Segoe UI',Arial,sans-serif;color:#1e293b;">${escapeHtml(o.text)}</div>
+        <div style="display:flex;gap:20px;align-items:flex-start;margin:0;padding:0;border:none;">
+          <div style="flex:0 0 38px;font:700 22px/1 Arial,sans-serif;color:#475569;padding-top:3px;">${letters[idx]||(idx+1)}.</div>
+          <div style="flex:1;font:400 26px/1.5 'Segoe UI',Arial,sans-serif;color:#1e293b;">${escapeHtml(o.text)}</div>
         </div>`).join('')
-    : [0,1,2].map(()=>`<div style="margin-top:36px;border-bottom:2px solid #cbd5e1;height:48px;"></div>`).join('');
-  return `<div style="width:1280px;background:#fff;padding:56px 64px;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:26px;">
-      <div style="font:700 14px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName?escapeHtml(topicName):'Quiz'}</div>
-      <div style="font:600 14px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
+    : [0,1,2].map(()=>`<div style="margin-top:48px;border-bottom:2px solid #cbd5e1;height:56px;"></div>`).join('');
+  return `<div style="width:1280px;background:#fff;padding:64px 72px 48px;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;">
+      <div style="font:700 16px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName?escapeHtml(topicName):'Quiz'}</div>
+      <div style="font:600 16px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
     </div>
-    <div style="font:400 25px/1.55 'Segoe UI',Arial,sans-serif;color:#0f172a;">${post.post_content||''}</div>
-    <div>${optsHtml}</div>
+    <div style="font:500 32px/1.55 'Segoe UI',Arial,sans-serif;color:#0f172a;margin-bottom:36px;">${post.post_content||''}</div>
+    <div style="display:flex;flex-direction:column;gap:18px;">${optsHtml}</div>
   </div>`;
 }
 async function renderMCQPages(qs,topicName){
