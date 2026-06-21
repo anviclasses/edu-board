@@ -220,7 +220,7 @@
   #sb-timer .t{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:1px;}
 
   /* ---------- Screen shade ---------- */
-  #sb-shade{position:absolute;inset:0;background:#11141a;z-index:45;display:none;}
+  #sb-shade{position:absolute;inset:0;background:#11141a;z-index:35;display:none;}
   #sb-shade.on{display:block;}
   #sb-shade .grip{position:absolute;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:center;
     background:linear-gradient(#1b2029,#11141a);cursor:ns-resize;color:var(--txt-dim);font-size:11px;border-bottom:1px solid var(--edge-2);}
