@@ -72,7 +72,6 @@ var MARKUP = `
     <button class="sb-tool" id="sb-shadebtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="1"/><path d="M3 14h18M3 18h18" opacity=".5"/></svg><span class="tip">Screen shade</span></button>
     <button class="sb-tool" id="sb-webbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v1h1a3 3 0 0 1 3 3v1a3 3 0 0 1-1 2.24V15a3 3 0 0 1-3 3h-1v1a3 3 0 0 1-6 0v-1H7a3 3 0 0 1-3-3v-2.76A3 3 0 0 1 3 10V9a3 3 0 0 1 3-3h1V5a3 3 0 0 1 3-3z"/><circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/></svg><span class="tip">AI Chatbot</span></button>
     <button class="sb-tool" id="sb-timerbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span class="tip">Timer</span></button>
-    <button class="sb-tool" id="sb-quizbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="tip">Import quiz (MCQ JSON)</span></button>
     <div class="sb-dock-sep"></div>
     <button class="sb-tool" id="sb-clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg><span class="tip">Clear page</span></button>
 
@@ -184,7 +183,6 @@ var MARKUP = `
   <div id="sb-load"><div class="sb-spin"></div><div id="sb-load-txt">Loading…</div></div>
 
   <input type="file" id="sb-loadfile" accept=".smartboard,.json" class="sb-hidden">
-  <input type="file" id="sb-quizfile" accept=".json" class="sb-hidden">
 
   <!-- FILE PICKER (in-board overlay — keeps fullscreen) -->
   <div id="sb-picker">
@@ -213,16 +211,16 @@ var MARKUP = `
       <div class="sb-welcome-or">or upload a file to begin</div>
       <div id="sb-welcome-drop">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/></svg>
-        <div class="sb-drop-main">Drag &amp; drop a PDF or PowerPoint</div>
+        <div class="sb-drop-main">Drag &amp; drop a PDF, PowerPoint, or quiz file</div>
         <button id="sb-welcome-browse">Browse files</button>
-        <div class="sb-drop-accept">Accepted: PDF · PPTX (modern PowerPoint)</div>
+        <div class="sb-drop-accept">Accepted: PDF · PPTX (modern PowerPoint) · JSON (quiz)</div>
       </div>
       <div id="sb-welcome-notice">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
         <div id="sb-welcome-notice-text"></div>
         <button id="sb-welcome-notice-close" title="Dismiss"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
-      <input type="file" id="sb-welcome-file" accept=".pdf,.pptx" class="sb-hidden">
+      <input type="file" id="sb-welcome-file" accept=".pdf,.pptx,.json,.smartboard" class="sb-hidden">
       <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
     </div>
   </div>
@@ -297,7 +295,7 @@ function resize(){
   // Imported PDF/PPTX pages that haven't been manually zoomed/panned stay
   // fitted to the screen across rotation, fullscreen toggles, and moving
   // between phone/tablet/desktop — recompute their view for the new size.
-  if(page() && page().autofit && (page().bg.type==='image' || page().fitW)) fitView();
+  if(page() && page().bg.type==='image' && page().autofit) fitView();
   render();
 }
 window.addEventListener('resize',resize); if(window.ResizeObserver){try{new ResizeObserver(()=>resize()).observe(wrap);}catch(_){ }}
@@ -392,7 +390,7 @@ function drawShape(c,o){
   c.restore();
 }
 function drawText(c,o){
-  c.save(); c.fillStyle=o.color; c.font=`${o.weight||500} ${o.size}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+  c.save(); c.fillStyle=o.color; c.font=`500 ${o.size}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
   c.textBaseline='top';
   o.text.split('\n').forEach((ln,i)=>c.fillText(ln,o.x,o.y+i*o.size*1.18));
   c.restore();
@@ -513,10 +511,10 @@ function serAll(){
   // undo/redo/save snapshot reflects what's actually on screen, not a stale
   // default (scale:1,x:0,y:0) that makes the page look blank when restored.
   if(page()) page().view={...view};
-  return JSON.stringify(pages.map(p=>({bg:p.bg,view:p.view,objs:p.objs.map(serObj),autofit:p.autofit,fitW:p.fitW,fitH:p.fitH})));
+  return JSON.stringify(pages.map(p=>({bg:p.bg,view:p.view,objs:p.objs.map(serObj),autofit:p.autofit})));
 }
-function loadAll(json){
-  pages=JSON.parse(json).map(p=>({bg:p.bg,view:p.view||{scale:1,x:0,y:0},objs:p.objs,autofit:p.autofit,fitW:p.fitW,fitH:p.fitH}));
+function loadAll(json, stripDrawings){
+  pages=JSON.parse(json).map(p=>({bg:p.bg,view:p.view||{scale:1,x:0,y:0},objs:stripDrawings?[]:(p.objs||[]),autofit:p.autofit}));
   pages.forEach(p=>{if(p.bg.src)ensureImg(p.bg.src);p.objs.forEach(o=>{if(o.t==='image')ensureImg(o.src);});});
   cur=Math.min(cur,pages.length-1); view=page().view; selection=null;
 }
@@ -729,8 +727,6 @@ function markActive(id){dock.querySelectorAll('.sb-tool').forEach(b=>{if(!b.data
 $('#sb-shadebtn').addEventListener('click',()=>toggleShade());
 $('#sb-webbtn').addEventListener('click',()=>toggleWeb());
 $('#sb-timerbtn').addEventListener('click',()=>toggleTimer());
-$('#sb-quizbtn').addEventListener('click',()=>$('#sb-quizfile').click());
-$('#sb-quizfile').addEventListener('change',e=>{const f=e.target.files[0];if(f)importQuiz(f);e.target.value='';});
 $('#sb-clear').addEventListener('click',()=>{if(page().objs.length){pushUndo();page().objs=[];render();toast('Page cleared');}});
 
 /* spotlight/laser tools also need active highlight via data-tool path already handled */
@@ -749,7 +745,7 @@ $('#sb-opacity').addEventListener('input',e=>opacity=+e.target.value/100);
 /* ============================== pages ============================== */
 function updatePageLbl(){$('#sb-pagelbl').textContent=`${cur+1} / ${pages.length}`;
   $('#sb-prev').disabled=cur===0;$('#sb-next').disabled=cur===pages.length-1;}
-function switchPage(i){if(i<0||i>=pages.length)return;page().view={...view};cur=i;view={...pages[cur].view};if(pages[cur].autofit&&(pages[cur].bg.type==='image'||pages[cur].fitW))fitView();selection=null;updatePageLbl();render();}
+function switchPage(i){if(i<0||i>=pages.length)return;page().view={...view};cur=i;view={...pages[cur].view};if(pages[cur].bg.type==='image'&&pages[cur].autofit)fitView();selection=null;updatePageLbl();render();}
 $('#sb-prev').addEventListener('click',()=>switchPage(cur-1));
 $('#sb-next').addEventListener('click',()=>switchPage(cur+1));
 $('#sb-undo').addEventListener('click',undo);
@@ -829,13 +825,46 @@ function startWithFile(f){
     return;
   }
   hideWelcomeNotice();
+  if(n.endsWith('.json')||n.endsWith('.smartboard')){ startWithQuizJSON(f); return; }
   if(!(n.endsWith('.pdf')||n.endsWith('.pptx'))){
-    showWelcomeNotice('<b>Unsupported file type.</b> Only PDF and modern PowerPoint (.pptx) files can be imported here.'); return;
+    showWelcomeNotice('<b>Unsupported file type.</b> Only PDF, PowerPoint (.pptx), and quiz (.json) files can be imported here.'); return;
   }
   $('#sb-welcome').classList.add('hide');
   try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
   enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
   if(n.endsWith('.pdf')) importPDF(f); else importPPT(f);
+}
+// Welcome-screen-only quiz loader. Unlike the in-canvas "Open board file"
+// (which fully restores a saved session, drawings included), this is meant
+// for handing the *same* prepared quiz file to one student after another:
+// it keeps every page's background/content (the quiz itself) exactly as
+// saved, but always clears each page's objs (the drawn strokes/shapes/text)
+// so nothing from a previous student carries over.
+function startWithQuizJSON(f){
+  const r=new FileReader();
+  r.onload=()=>{
+    let pageCount;
+    try{
+      const parsed=JSON.parse(r.result);
+      if(!Array.isArray(parsed)||!parsed.length) throw new Error('empty');
+      pageCount=parsed.length;
+    }catch(e){
+      showWelcomeNotice('<b>Invalid quiz file.</b> That .json file isn\'t a SmartBoard quiz/board file.');
+      return;
+    }
+    hideWelcomeNotice();
+    undoStack=[]; redoStack=[];
+    loadAll(r.result, true); // true = keep the quiz content, strip any drawings
+    cur=0; view=page().view; selection=null;
+    updateUndo(); updatePageLbl();
+    $('#sb-welcome').classList.add('hide');
+    try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
+    enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+    render();
+    toast(`Quiz loaded · ${pageCount} page${pageCount>1?'s':''} · ready for drawing`);
+  };
+  r.onerror=()=>{ showWelcomeNotice('<b>Could not read that file.</b> Please try again.'); };
+  r.readAsText(f);
 }
 (function(){
   const wdrop=$('#sb-welcome-drop'), wfile=$('#sb-welcome-file');
@@ -996,110 +1025,14 @@ function addDocPages(list){
     startIndex=pages.length-list.length; }
   cur=startIndex; fitView(); pages[cur].view={...view}; updatePageLbl(); render();
 }
-/* ---------- quiz (MCQ JSON) import ---------- */
-// Strips HTML (post_content / option text come as HTML strings) down to
-// readable plain text, keeping just enough structure (line breaks, table
-// cells) that things like Match-List-style tables stay legible.
-function htmlToText(html){
-  if(!html) return '';
-  const pre = String(html)
-    .replace(/<br\s*\/?>/gi,'\n')
-    .replace(/<\/p>/gi,'\n\n')
-    .replace(/<\/tr>/gi,'\n')
-    .replace(/<\/t[dh]>/gi,' | ')
-    .replace(/<li[^>]*>/gi,'• ')
-    .replace(/<\/li>/gi,'\n');
-  const tmp=document.createElement('div'); tmp.innerHTML=pre;
-  let text = tmp.textContent || tmp.innerText || '';
-  text = text.replace(/[ \t]+/g,' ').split('\n').map(l=>l.trim().replace(/\s*\|\s*$/,'')).join('\n');
-  text = text.replace(/\n{3,}/g,'\n\n').trim();
-  return text;
-}
-// Greedy word-wrap using real canvas text metrics, so quiz slides lay out
-// correctly regardless of font/zoom.
-function wrapLines(text,maxWidth,font){
-  ctx.save(); ctx.font=font;
-  const lines=[];
-  String(text).split('\n').forEach(para=>{
-    if(para===''){lines.push('');return;}
-    const words=para.split(' ');
-    let cur='';
-    words.forEach(w=>{
-      const test=cur?cur+' '+w:w;
-      if(cur && ctx.measureText(test).width>maxWidth){lines.push(cur);cur=w;}
-      else cur=test;
-    });
-    if(cur)lines.push(cur);
-  });
-  ctx.restore();
-  return lines;
-}
-const QUIZ_W=1280, QUIZ_H=800, QUIZ_LETTERS=['A','B','C','D','E','F','G','H'];
-// Builds one board page per quiz question (question + options only — the
-// explanation field is intentionally never read or rendered).
-function buildQuizPages(data){
-  let posts = Array.isArray(data) ? data : (data && data.posts) || [];
-  posts = posts.filter(p=>p && p.meta_input && Array.isArray(p.meta_input._aimcq_options));
-  const total = posts.length;
-  const marginX=72, qFont='700 32px system-ui,-apple-system,Segoe UI,Roboto,sans-serif',
-        optFont='500 26px system-ui,-apple-system,Segoe UI,Roboto,sans-serif', maxW=QUIZ_W-marginX*2;
-  return posts.map((p,idx)=>{
-    const qText = htmlToText(p.post_content || p.post_title || `Question ${idx+1}`);
-    const opts = p.meta_input._aimcq_options.map(o=>htmlToText(o && o.text));
-    const pg=newPage();
-    pg.bg={type:'plain',color:'#ffffff'};
-    pg.fitW=QUIZ_W; pg.fitH=QUIZ_H; pg.autofit=true;
-    const objs=[];
-    let y=50;
-    objs.push({t:'text',x:marginX,y,text:`Question ${idx+1} of ${total}`,color:'#6b7280',size:20,weight:600});
-    y+=42;
-    const qLines=wrapLines(qText,maxW,qFont);
-    objs.push({t:'text',x:marginX,y,text:qLines.join('\n'),color:'#15181d',size:32,weight:700});
-    y+=qLines.length*32*1.18+34;
-    opts.forEach((optText,i)=>{
-      const label=(QUIZ_LETTERS[i]||String(i+1))+')  ';
-      const lines=wrapLines(label+optText,maxW-30,optFont);
-      objs.push({t:'text',x:marginX+30,y,text:lines.join('\n'),color:'#1f2937',size:26,weight:500});
-      y+=lines.length*26*1.18+24;
-    });
-    pg.objs=objs;
-    return pg;
-  });
-}
-// Inserts freshly built quiz pages the same way PDF/PPTX import does: take
-// over a single still-blank page if that's all there is, otherwise append.
-function addQuizPages(qpages){
-  if(!qpages.length) return;
-  pushUndo();
-  const replaceable = pages.length===1 && cur===0 && page().objs.length===0 && page().bg.type!=='image';
-  let startIndex;
-  if(replaceable){ pages[0]=qpages[0]; qpages.slice(1).forEach(p=>pages.push(p)); startIndex=0; }
-  else { qpages.forEach(p=>pages.push(p)); startIndex=pages.length-qpages.length; }
-  cur=startIndex; fitView(); pages[cur].view={...view}; updatePageLbl(); render();
-}
-async function importQuiz(f){
-  try{
-    showLoad('Reading quiz…');
-    const text=await f.text();
-    let data; try{ data=JSON.parse(text); }catch(_){ throw new Error('not-json'); }
-    const qpages=buildQuizPages(data);
-    if(!qpages.length){ toast('No MCQ questions found in this file'); }
-    else { addQuizPages(qpages); toast(`Loaded ${qpages.length} question${qpages.length>1?'s':''}`); }
-  }catch(err){ console.error(err); toast('Could not read this quiz file'); }
-  hideLoad();
-}
-
-
+// Recomputes the view so an imported page (PDF/PPTX image) fits fully and
 // centred inside whatever screen space is currently available — phone,
 // tablet, desktop, portrait or landscape, windowed or fullscreen.
 function fitView(){
-  const pg=page();
-  const fw = pg.bg.type==='image' ? pg.bg.w : pg.fitW;
-  const fh = pg.bg.type==='image' ? pg.bg.h : pg.fitH;
-  if(!fw||!fh){view={scale:1,x:0,y:0};return;}
+  const pg=page(); if(pg.bg.type!=='image'){view={scale:1,x:0,y:0};return;}
   const w=cv.clientWidth,h=cv.clientHeight; const m=0.94;
-  const s=Math.min(w*m/fw, h*m/fh);
-  view={scale:s, x:(w-fw*s)/2, y:(h-fh*s)/2};
+  const s=Math.min(w*m/pg.bg.w, h*m/pg.bg.h);
+  view={scale:s, x:(w-pg.bg.w*s)/2, y:(h-pg.bg.h*s)/2};
   pg.autofit=true; // mark this page as "fit to screen" so resize/rotate/fullscreen keep it fitted
 }
 // Any manual zoom or pan on the current page takes it out of auto-fit mode,
