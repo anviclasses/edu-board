@@ -509,7 +509,7 @@ function loadAll(json){
   pages.forEach(p=>{if(p.bg.src)ensureImg(p.bg.src);p.objs.forEach(o=>{if(o.t==='image')ensureImg(o.src);});});
   cur=Math.min(cur,pages.length-1); view=page().view; selection=null;
 }
-function pushUndo(){undoStack.push(serAll());if(undoStack.length>50)undoStack.shift();redoStack=[];updateUndo();}
+function pushUndo(){if(page())page().view={...view};undoStack.push(serAll());if(undoStack.length>50)undoStack.shift();redoStack=[];updateUndo();}
 function undo(){if(!undoStack.length)return;redoStack.push(serAll());loadAll(undoStack.pop());updateUndo();render();updatePageLbl();}
 function redo(){if(!redoStack.length)return;undoStack.push(serAll());loadAll(redoStack.pop());updateUndo();render();updatePageLbl();}
 function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').disabled=!redoStack.length;}
@@ -518,8 +518,6 @@ function updateUndo(){$('#sb-undo').disabled=!undoStack.length;$('#sb-redo').dis
 const pointers=new Map();
 let drawId=null, gesturing=false, gLast=null;
 let startPt=null, panStart=null, moveOff=null, resizing=false;
-// 3-finger swipe state
-let swipe3={active:false,startX:0,triggered:false};
 
 function pressure(e){if(e.pointerType==='mouse'||!e.pressure)return 0.5;return e.pressure;}
 
@@ -532,15 +530,7 @@ cv.addEventListener('pointerdown',e=>{
     if(drawId!==null){live=null;drawId=null;}
     gesturing=true;gLast=gestureState();return;
   }
-  if(pointers.size===3){ // 3-finger swipe — cancel draw/gesture, arm swipe detection
-    if(drawId!==null){live=null;drawId=null;}
-    gesturing=false;
-    const pts=[...pointers.values()];
-    const avgX=pts.reduce((s,p)=>s+p.cx,0)/pts.length;
-    swipe3={active:true,startX:avgX,triggered:false};
-    return;
-  }
-  if(pointers.size>3)return;
+  if(pointers.size>2)return;
   drawId=e.pointerId;
   const b=boardPt(e); lastPointer=b;
 
@@ -570,17 +560,6 @@ cv.addEventListener('pointerdown',e=>{
 cv.addEventListener('pointermove',e=>{
   if(tool==='spotlight'){lastPointer=boardPt(e);return;}
   if(pointers.has(e.pointerId))pointers.set(e.pointerId,{cx:e.clientX,cy:e.clientY});
-  if(swipe3.active&&pointers.size>=3){
-    const pts=[...pointers.values()];
-    const avgX=pts.reduce((s,p)=>s+p.cx,0)/pts.length;
-    const dx=avgX-swipe3.startX;
-    const THRESHOLD=cv.clientWidth*0.18; // 18% of canvas width
-    if(!swipe3.triggered&&Math.abs(dx)>THRESHOLD){
-      swipe3.triggered=true;
-      if(dx<0) switchPage(cur+1); else switchPage(cur-1);
-    }
-    return;
-  }
   if(gesturing&&pointers.size>=2){doGesture();return;}
   if(e.pointerId!==drawId)return;
   const b=boardPt(e); lastPointer=b;
@@ -607,7 +586,6 @@ cv.addEventListener('pointermove',e=>{
 function endPointer(e){
   if(tool==='spotlight')return;
   pointers.delete(e.pointerId);
-  if(swipe3.active&&pointers.size<3){swipe3.active=false;}
   if(gesturing){if(pointers.size<2)gesturing=false;return;}
   if(e.pointerId!==drawId)return;
   drawId=null;
@@ -1310,7 +1288,7 @@ host.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey)return;
   const map={p:'pen',h:'marker',e:'eraser',s:'shape',t:'text',v:'select',l:'laser',o:'spotlight'};
   const k=e.key.toLowerCase();
-  if(map[k]){setTool(map[k]);const btn=dock.querySelector(`[data-tool="${map[k]}"]`);if(btn){dock.querySelectorAll('.sb-tool').forEach(b=>{if(b.dataset.tool)b.classList.remove('active')});btn.classList.add('active');}}
+  if(map[k]&&!e.shiftKey&&!e.altKey){setTool(map[k]);const btn=dock.querySelector(`[data-tool="${map[k]}"]`);if(btn){dock.querySelectorAll('.sb-tool').forEach(b=>{if(b.dataset.tool)b.classList.remove('active')});btn.classList.add('active');}}
   if((e.key==='Delete'||e.key==='Backspace')&&selection){pushUndo();page().objs=page().objs.filter(o=>o!==selection);selection=null;render();}
   if(e.key==='='||e.key==='+'){zoomBy(1.15);}
   if(e.key==='-'){zoomBy(1/1.15);}
@@ -1382,6 +1360,9 @@ function _onDtPointerDown(e){
       // Cancel tap-2 stroke before it starts
       e.stopImmediatePropagation();
       live = null;
+
+      // Cancel any text box tap-1 opened (Text tool) before it's committed
+      if(ta.style.display==='block'){ editTarget=null; ta.value=''; ta.style.display='none'; }
 
       // Roll back the dot that tap-1 may have committed
       // undoStack grows by 1 when a stroke is pushed; if it did, pop it.
