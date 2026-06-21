@@ -1028,11 +1028,11 @@ function questionCardHTML(post,i,total,topicName){
         </div>`).join('')
     : [0,1,2].map(()=>`<div style="margin-top:32px;border-bottom:2px solid #cbd5e1;height:44px;"></div>`).join('');
   return `<div style="width:1280px;height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex:none;">
       <div style="font:700 13px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName?escapeHtml(topicName):'Quiz'}</div>
       <div style="font:600 13px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
     </div>
-    <div style="font:600 28px/1.4 'Segoe UI',Arial,sans-serif;color:#0f172a;margin-bottom:4px;flex:none;">${post.post_content||''}</div>
+    <div style="font:600 28px/1.4 'Segoe UI',Arial,sans-serif;color:#0f172a;margin-bottom:8px;flex:none;">${post.post_content||''}</div>
     <div style="display:flex;flex-direction:column;gap:12px;flex:1;">${optsHtml}</div>
   </div>`;
 }
