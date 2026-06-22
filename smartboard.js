@@ -56,6 +56,8 @@ var MARKUP = `
     <button class="sb-btn" id="sb-zoomin" title="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></button>
     <button class="sb-btn" id="sb-export" title="Save / export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg></button>
     <button class="sb-btn" id="sb-full" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
+    <div class="sb-sep" id="sb-lang-sep" style="display:none"></div>
+    <button class="sb-btn" id="sb-lang-toggle" title="Switch language / \u092d\u093e\u0937\u093e \u092c\u0926\u0932\u0947\u0902" style="display:none;font-size:12px;font-weight:700;letter-spacing:.04em;padding:0 10px;min-width:52px;">\u0939\u093f\u0902\u0926\u0940</button>
   </div>
 
   <!-- TOOL DOCK -->
@@ -219,6 +221,11 @@ var MARKUP = `
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
         <div id="sb-welcome-notice-text"></div>
         <button id="sb-welcome-notice-close" title="Dismiss"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div id="sb-welcome-lang" style="display:none;margin-top:12px;text-align:center;">
+        <span style="font-size:13px;color:#64748b;margin-right:8px;">Quiz language / क्विज भाषा:</span>
+        <button class="sb-lang-btn active" data-lang="en" id="sb-welcome-lang-en" style="padding:5px 14px;border-radius:6px;border:1.5px solid #3b82f6;background:#eff6ff;color:#1d4ed8;font-weight:600;font-size:13px;cursor:pointer;margin-right:6px;">English</button>
+        <button class="sb-lang-btn" data-lang="hi" id="sb-welcome-lang-hi" style="padding:5px 14px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600;font-size:13px;cursor:pointer;">हिंदी</button>
       </div>
       <input type="file" id="sb-welcome-file" accept=".pdf,.pptx,.json,.smartboard" class="sb-hidden">
       <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
@@ -900,12 +907,16 @@ function startWithQuizJSON(f){
       const qs=parsed.posts.filter(p=>p&&p.post_type==='question'&&p.post_status!=='draft');
       if(!qs.length){ showWelcomeNotice('<b>No questions found.</b> This file doesn\'t contain any quiz questions to import.'); return; }
       const topicName=(parsed.terms&&parsed.terms[0]&&parsed.terms[0].name)||'';
+      // Detect if Hindi content is available in this quiz
+      const hasHindi=qs.some(q=>q.meta_input&&q.meta_input._aimcq_question_content_hi);
       hideWelcomeNotice();
       enterAndShowBoard();
       try{
         showLoad('Preparing quiz…');
         await ensureH2C();
-        const out=await renderMCQPages(qs,topicName);
+        // Cache questions for language re-rendering
+        quizQsCache=qs; quizTopicCache=topicName;
+        const out=await renderMCQPages(qs,topicName,quizLang);
         if(!out.length) throw new Error('no pages rendered');
         pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
         out.forEach(d=>ensureImg(d.src));
@@ -913,6 +924,11 @@ function startWithQuizJSON(f){
         undoStack=[]; redoStack=[];
         updateUndo(); updatePageLbl(); render();
         toast(`Quiz loaded · ${out.length} question${out.length>1?'s':''} · ready for drawing`);
+        // Show language toggle in the top bar when Hindi content exists
+        if(hasHindi){
+          const langBtn=$('#sb-lang-toggle'), langSep=$('#sb-lang-sep');
+          if(langBtn){ langBtn.style.display=''; if(langSep) langSep.style.display=''; updateLangBtn(); }
+        }
       }catch(err){
         console.error(err);
         toast('Could not build this quiz — check the file and try again');
@@ -933,6 +949,67 @@ function startWithQuizJSON(f){
   ['dragenter','dragover'].forEach(t=>wdrop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();wdrop.classList.add('drag');}));
   ['dragleave','dragend'].forEach(t=>wdrop.addEventListener(t,e=>{e.preventDefault();e.stopPropagation();wdrop.classList.remove('drag');}));
   wdrop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();wdrop.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)startWithFile(f);});
+
+  /* Language selector on welcome screen */
+  function updateWelcomeLangBtns(){
+    const enBtn=$('#sb-welcome-lang-en'), hiBtn=$('#sb-welcome-lang-hi');
+    if(!enBtn||!hiBtn) return;
+    const activeStyle='border-color:#3b82f6;background:#eff6ff;color:#1d4ed8;';
+    const inactiveStyle='border-color:#e2e8f0;background:#f8fafc;color:#475569;';
+    enBtn.style.cssText=enBtn.style.cssText.replace(/border-color[^;]+;|background[^;]+;|color[^;]+;/g,'');
+    hiBtn.style.cssText=hiBtn.style.cssText.replace(/border-color[^;]+;|background[^;]+;|color[^;]+;/g,'');
+    if(quizLang==='hi'){Object.assign(hiBtn.style,{borderColor:'#3b82f6',background:'#eff6ff',color:'#1d4ed8'});Object.assign(enBtn.style,{borderColor:'#e2e8f0',background:'#f8fafc',color:'#475569'});}
+    else{Object.assign(enBtn.style,{borderColor:'#3b82f6',background:'#eff6ff',color:'#1d4ed8'});Object.assign(hiBtn.style,{borderColor:'#e2e8f0',background:'#f8fafc',color:'#475569'});}
+  }
+  // Show welcome lang selector when a JSON file is hovered/dropped
+  function peekFileForHindi(file){
+    if(!file||!file.name.endsWith('.json'))return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const p=JSON.parse(r.result);
+        const qs=Array.isArray(p&&p.posts)?p.posts.filter(q=>q&&q.post_type==='question'):[];
+        const hasHi=qs.some(q=>q.meta_input&&q.meta_input._aimcq_question_content_hi);
+        if(hasHi){ const el=$('#sb-welcome-lang'); if(el){el.style.display=''; updateWelcomeLangBtns();}}
+      }catch(e){}
+    };
+    r.readAsText(file);
+  }
+  // Intercept drop to peek for Hindi
+  const origDrop=wdrop._dropHandler;
+  wdrop.addEventListener('dragover',e=>{
+    if(e.dataTransfer&&e.dataTransfer.items&&e.dataTransfer.items[0]&&e.dataTransfer.items[0].getAsFile){
+      const f=e.dataTransfer.items[0].getAsFile&&e.dataTransfer.items[0].getAsFile();
+      if(f&&f.name.endsWith('.json')){}// can't peek on hover reliably
+    }
+  });
+  // When file input changes, peek
+  wfile.addEventListener('change',e=>{ peekFileForHindi(e.target.files[0]); },true);
+
+  // Welcome screen lang button handlers
+  document.querySelectorAll('.sb-lang-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      quizLang=btn.dataset.lang||'en';
+      updateWelcomeLangBtns();
+    });
+  });
+})();
+
+/* Language button helpers (top bar) */
+function updateLangBtn(){
+  const btn=$('#sb-lang-toggle');
+  if(!btn) return;
+  if(quizLang==='hi'){ btn.textContent='English'; btn.title='Switch to English'; }
+  else{ btn.textContent='हिंदी'; btn.title='Switch to Hindi / हिंदी में बदलें'; }
+}
+(function(){
+  document.addEventListener('click',e=>{
+    if(e.target&&e.target.id==='sb-lang-toggle'){
+      const newLang=quizLang==='hi'?'en':'hi';
+      rerenderQuizInLang(newLang);
+      updateLangBtn();
+    }
+  });
 })();
 
 /* ============================== open-board overlay picker ============================== */
@@ -1032,33 +1109,46 @@ async function importPDF(f){
 // Reuses the same html2canvas lib the PPT path loads, but doesn't need the
 // rest of the PPTXjs/jQuery stack — just one rasterization call per question.
 let h2cReady=false;
+
+/* --- Language support (English / Hindi) --- */
+let quizLang='en';           // 'en' or 'hi'
+let quizQsCache=null;         // last loaded questions array
+let quizTopicCache=''        // last loaded topic name
 async function ensureH2C(){
   if(h2cReady||window.html2canvas){h2cReady=true;return;}
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   h2cReady=true;
 }
 function escapeHtml(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function questionCardHTML(post,i,total,topicName){
+function questionCardHTML(post,i,total,topicName,lang){
   const mi=post.meta_input||{};
-  const opts=Array.isArray(mi._aimcq_options)?mi._aimcq_options:[];
+  const isHi=(lang||quizLang)==='hi';
+  // Pick language-appropriate content
+  const questionContent = isHi && mi._aimcq_question_content_hi ? mi._aimcq_question_content_hi : (post.post_content||'');
+  const rawOpts = isHi && Array.isArray(mi._aimcq_options_hi) && mi._aimcq_options_hi.length ? mi._aimcq_options_hi : (Array.isArray(mi._aimcq_options)?mi._aimcq_options:[]);
+  const topicDisplay = topicName ? escapeHtml(topicName) : (isHi ? 'क्विज' : 'Quiz');
+  const questionLabel = isHi ? `प्रश्न ${i+1} / ${total}` : `Question ${i+1} of ${total}`;
+  // Choose font: Hindi needs a Devanagari-supporting font
+  const bodyFont = isHi ? "'Noto Sans Devanagari','Mangal','Arial Unicode MS',Arial,sans-serif" : "'Segoe UI',Arial,sans-serif";
+  const opts=rawOpts;
   const letters=['A','B','C','D','E','F','G','H'];
   const optsHtml=opts.length
     ? opts.map((o,idx)=>`
         <div style="display:flex;gap:18px;align-items:flex-start;margin:0;padding:0;border:none;">
           <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
-          <div style="flex:1;font:400 24px/1.25 'Segoe UI',Arial,sans-serif;color:#1e293b;">${escapeHtml(o.text)}</div>
+          <div style="flex:1;font:400 24px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
         </div>`).join('')
     : [0,1,2].map(()=>`<div style="margin-top:32px;border-bottom:2px solid #cbd5e1;height:44px;"></div>`).join('');
-  return `<div style="width:1280px;height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;">
+  return `<div style="width:1280px;height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:${bodyFont};display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex:none;">
-      <div style="font:700 13px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName?escapeHtml(topicName):'Quiz'}</div>
-      <div style="font:600 13px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
+      <div style="font:700 13px/1 Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">${topicDisplay}</div>
+      <div style="font:600 13px/1 Arial,sans-serif;color:#94a3b8;">${questionLabel}</div>
     </div>
-    <div style="font:600 28px/1.4 'Segoe UI',Arial,sans-serif;color:#0f172a;margin-bottom:8px;flex:none;">${post.post_content||''}</div>
+    <div style="font:600 28px/1.4 ${bodyFont};color:#0f172a;margin-bottom:8px;flex:none;">${questionContent}</div>
     <div style="display:flex;flex-direction:column;gap:12px;flex:none;">${optsHtml}</div>
   </div>`;
 }
-async function renderMCQPages(qs,topicName){
+async function renderMCQPages(qs,topicName,lang){
   const holder=document.createElement('div');
   holder.style.cssText='position:fixed;left:-99999px;top:0;background:#fff;';
   document.body.appendChild(holder);
@@ -1066,12 +1156,33 @@ async function renderMCQPages(qs,topicName){
   try{
     for(let i=0;i<qs.length;i++){
       showLoad(`Building question ${i+1} of ${qs.length}…`);
-      holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName);
+      holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName,lang||quizLang);
       const c=await window.html2canvas(holder.firstElementChild,{scale:1.5,backgroundColor:'#fff',logging:false});
       out.push({src:c.toDataURL('image/jpeg',0.88),w:c.width,h:c.height});
     }
   }finally{ holder.remove(); }
   return out;
+}
+
+/* Re-render the currently loaded quiz in a new language */
+async function rerenderQuizInLang(lang){
+  if(!quizQsCache||!quizQsCache.length) return;
+  quizLang=lang;
+  try{
+    showLoad('Switching language…');
+    await ensureH2C();
+    const out=await renderMCQPages(quizQsCache,quizTopicCache,lang);
+    if(!out.length) throw new Error('no pages');
+    // Preserve current page index
+    const prevCur=Math.min(cur,out.length-1);
+    pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
+    out.forEach(d=>ensureImg(d.src));
+    cur=prevCur; fitView(); pages[cur].view={...view}; selection=null;
+    undoStack=[]; redoStack=[];
+    updateUndo(); updatePageLbl(); render();
+    toast(lang==='hi' ? 'हिंदी में बदला गया' : 'Switched to English');
+  }catch(e){ console.error(e); toast('Could not switch language'); }
+  hideLoad();
 }
 
 /* ---------- PPT (best effort) ---------- */
