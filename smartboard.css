@@ -56,19 +56,16 @@
   .sb-btn svg{width:19px;height:19px;flex:none;}
   .sb-btn.lbl{font-variant-numeric:tabular-nums;}
   .sb-btn[disabled]{opacity:.35;pointer-events:none;}
-  /* Language toggle button in top bar */
-  #sb-lang-toggle{
+  /* Language mode buttons in top bar */
+  .sb-lang-mode-btn{
     font-family:'Noto Sans Devanagari','Segoe UI',Arial,sans-serif;
-    font-size:12px;font-weight:700;
-    letter-spacing:.03em;
-    padding:0 10px;min-width:52px;
     border-radius:5px;
-    border:1.5px solid rgba(99,102,241,.5);
-    background:rgba(99,102,241,.12);
+    border:1.5px solid rgba(99,102,241,.35);
+    background:rgba(99,102,241,.08);
     color:#a5b4fc;
-    transition:background .15s,color .15s;
+    transition:background .15s,color .15s,border-color .15s;
   }
-  #sb-lang-toggle:hover{background:rgba(99,102,241,.22);color:#c7d2fe;}
+  .sb-lang-mode-btn:hover{background:rgba(99,102,241,.18);color:#c7d2fe;border-color:rgba(99,102,241,.55);}
 
   #sb-pagelbl{min-width:64px;font-size:12.5px;color:var(--txt-dim);text-align:center;font-variant-numeric:tabular-nums;}
 
