@@ -225,7 +225,8 @@ var MARKUP = `
       <div id="sb-welcome-lang" style="display:none;margin-top:12px;text-align:center;">
         <span style="font-size:13px;color:#64748b;margin-right:8px;">Quiz language / क्विज भाषा:</span>
         <button class="sb-lang-btn active" data-lang="en" id="sb-welcome-lang-en" style="padding:5px 14px;border-radius:6px;border:1.5px solid #3b82f6;background:#eff6ff;color:#1d4ed8;font-weight:600;font-size:13px;cursor:pointer;margin-right:6px;">English</button>
-        <button class="sb-lang-btn" data-lang="hi" id="sb-welcome-lang-hi" style="padding:5px 14px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600;font-size:13px;cursor:pointer;">हिंदी</button>
+        <button class="sb-lang-btn" data-lang="hi" id="sb-welcome-lang-hi" style="padding:5px 14px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600;font-size:13px;cursor:pointer;margin-right:6px;">हिंदी</button>
+        <button class="sb-lang-btn" data-lang="both" id="sb-welcome-lang-both" style="padding:5px 14px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600;font-size:13px;cursor:pointer;">EN + हि</button>
       </div>
       <input type="file" id="sb-welcome-file" accept=".pdf,.pptx,.json,.smartboard" class="sb-hidden">
       <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
@@ -952,14 +953,11 @@ function startWithQuizJSON(f){
 
   /* Language selector on welcome screen */
   function updateWelcomeLangBtns(){
-    const enBtn=$('#sb-welcome-lang-en'), hiBtn=$('#sb-welcome-lang-hi');
-    if(!enBtn||!hiBtn) return;
-    const activeStyle='border-color:#3b82f6;background:#eff6ff;color:#1d4ed8;';
-    const inactiveStyle='border-color:#e2e8f0;background:#f8fafc;color:#475569;';
-    enBtn.style.cssText=enBtn.style.cssText.replace(/border-color[^;]+;|background[^;]+;|color[^;]+;/g,'');
-    hiBtn.style.cssText=hiBtn.style.cssText.replace(/border-color[^;]+;|background[^;]+;|color[^;]+;/g,'');
-    if(quizLang==='hi'){Object.assign(hiBtn.style,{borderColor:'#3b82f6',background:'#eff6ff',color:'#1d4ed8'});Object.assign(enBtn.style,{borderColor:'#e2e8f0',background:'#f8fafc',color:'#475569'});}
-    else{Object.assign(enBtn.style,{borderColor:'#3b82f6',background:'#eff6ff',color:'#1d4ed8'});Object.assign(hiBtn.style,{borderColor:'#e2e8f0',background:'#f8fafc',color:'#475569'});}
+    const btns=['en','hi','both'].map(l=>$('#sb-welcome-lang-'+l)).filter(Boolean);
+    btns.forEach(btn=>{
+      const active=btn.dataset.lang===quizLang;
+      Object.assign(btn.style,active?{borderColor:'#3b82f6',background:'#eff6ff',color:'#1d4ed8'}:{borderColor:'#e2e8f0',background:'#f8fafc',color:'#475569'});
+    });
   }
   // Show welcome lang selector when a JSON file is hovered/dropped
   function peekFileForHindi(file){
@@ -999,14 +997,15 @@ function startWithQuizJSON(f){
 function updateLangBtn(){
   const btn=$('#sb-lang-toggle');
   if(!btn) return;
-  if(quizLang==='hi'){ btn.textContent='English'; btn.title='Switch to English'; }
-  else{ btn.textContent='हिंदी'; btn.title='Switch to Hindi / हिंदी में बदलें'; }
+  if(quizLang==='en'){ btn.textContent='हिंदी'; btn.title='Switch to Hindi'; }
+  else if(quizLang==='hi'){ btn.textContent='EN+हि'; btn.title='Show both languages side by side'; }
+  else{ btn.textContent='English'; btn.title='Switch to English'; }
 }
 (function(){
   document.addEventListener('click',e=>{
     if(e.target&&e.target.id==='sb-lang-toggle'){
-      const newLang=quizLang==='hi'?'en':'hi';
-      rerenderQuizInLang(newLang);
+      const next=quizLang==='en'?'hi':quizLang==='hi'?'both':'en';
+      rerenderQuizInLang(next);
       updateLangBtn();
     }
   });
@@ -1148,15 +1147,65 @@ function questionCardHTML(post,i,total,topicName,lang){
     <div style="display:flex;flex-direction:column;gap:12px;flex:none;">${optsHtml}</div>
   </div>`;
 }
+function questionCardBilingualHTML(post,i,total,topicName){
+  const mi=post.meta_input||{};
+  const enFont="'Segoe UI',Arial,sans-serif";
+  const hiFont="'Noto Sans Devanagari','Mangal','Arial Unicode MS',Arial,sans-serif";
+  const letters=['A','B','C','D','E','F','G','H'];
+  // English content
+  const enContent=post.post_content||'';
+  const enOpts=Array.isArray(mi._aimcq_options)?mi._aimcq_options:[];
+  // Hindi content
+  const hiContent=mi._aimcq_question_content_hi||enContent;
+  const hiOpts=Array.isArray(mi._aimcq_options_hi)&&mi._aimcq_options_hi.length?mi._aimcq_options_hi:enOpts;
+  const topicName2=topicName?escapeHtml(topicName):'Quiz';
+  const maxOpts=Math.max(enOpts.length,hiOpts.length);
+  function colOpts(opts,font){
+    if(!opts.length) return [0,1,2].map(()=>`<div style="margin-top:20px;border-bottom:2px solid #cbd5e1;height:36px;"></div>`).join('');
+    return opts.map((o,idx)=>`
+      <div style="display:flex;gap:12px;align-items:flex-start;margin:0;padding:0;">
+        <div style="flex:0 0 24px;font:700 16px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+        <div style="flex:1;font:400 18px/1.3 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
+      </div>`).join('');
+  }
+  return `<div style="width:1280px;height:720px;background:#fff;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex:none;">
+      <div style="font:700 12px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName2}</div>
+      <div style="font:600 12px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
+    </div>
+    <!-- Two-column body -->
+    <div style="display:flex;flex:1;gap:0;min-height:0;">
+      <!-- English column -->
+      <div style="flex:1;padding:10px 14px 10px 0;border-right:2px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#3b82f6;margin-bottom:8px;flex:none;">English</div>
+        <div style="font:600 20px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(enOpts,enFont)}</div>
+      </div>
+      <!-- Hindi column -->
+      <div style="flex:1;padding:10px 0 10px 14px;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8b5cf6;margin-bottom:8px;flex:none;">हिंदी</div>
+        <div style="font:600 20px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
+        <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(hiOpts,hiFont)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function renderMCQPages(qs,topicName,lang){
   const holder=document.createElement('div');
   holder.style.cssText='position:fixed;left:-99999px;top:0;background:#fff;';
   document.body.appendChild(holder);
   const out=[];
+  const effectiveLang=lang||quizLang;
   try{
     for(let i=0;i<qs.length;i++){
       showLoad(`Building question ${i+1} of ${qs.length}…`);
-      holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName,lang||quizLang);
+      if(effectiveLang==='both'){
+        holder.innerHTML=questionCardBilingualHTML(qs[i],i,qs.length,topicName);
+      } else {
+        holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName,effectiveLang);
+      }
       const c=await window.html2canvas(holder.firstElementChild,{scale:1.5,backgroundColor:'#fff',logging:false});
       out.push({src:c.toDataURL('image/jpeg',0.88),w:c.width,h:c.height});
     }
@@ -1180,7 +1229,7 @@ async function rerenderQuizInLang(lang){
     cur=prevCur; fitView(); pages[cur].view={...view}; selection=null;
     undoStack=[]; redoStack=[];
     updateUndo(); updatePageLbl(); render();
-    toast(lang==='hi' ? 'हिंदी में बदला गया' : 'Switched to English');
+    toast(lang==='hi' ? 'हिंदी में बदला गया' : lang==='both' ? 'Bilingual mode — English & हिंदी side by side' : 'Switched to English');
   }catch(e){ console.error(e); toast('Could not switch language'); }
   hideLoad();
 }
