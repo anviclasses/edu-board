@@ -1145,7 +1145,7 @@ function questionCardHTML(post,i,total,topicName,lang){
   const optsHtml=opts.length
     ? opts.map((o,idx)=>`
         <div style="display:flex;gap:18px;align-items:flex-start;margin:0;padding:0;border:none;">
-          <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+          <div style="flex:0 0 32px;font:700 24px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
           <div style="flex:1;font:400 28px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
         </div>`).join('')
     : [0,1,2].map(()=>`<div style="margin-top:32px;border-bottom:2px solid #cbd5e1;height:44px;"></div>`).join('');
@@ -1175,7 +1175,7 @@ function questionCardBilingualHTML(post,i,total,topicName){
     if(!opts.length) return [0,1,2].map(()=>`<div style="margin-top:20px;border-bottom:2px solid #cbd5e1;height:36px;"></div>`).join('');
     return opts.map((o,idx)=>`
       <div style="display:flex;gap:12px;align-items:flex-start;margin:0;padding:0;">
-        <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+        <div style="flex:0 0 32px;font:700 24px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
         <div style="flex:1;font:400 28px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
       </div>`).join('');
   }
