@@ -46,8 +46,8 @@ var MARKUP = `
     <button class="sb-btn" id="sb-next" title="Next page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     <button class="sb-btn" id="sb-addpage" title="Add blank page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <div class="sb-sep"></div>
-    <button class="sb-btn" id="sb-undo" title="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg></button>
-    <button class="sb-btn" id="sb-redo" title="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg></button>
+    <button class="sb-btn" id="sb-undo" title="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14H4V9"/><path d="M4 14C5.5 8.5 10.5 5 16 5c3.5 0 6 2 6 2"/></svg></button>
+    <button class="sb-btn" id="sb-redo" title="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14h5V9"/><path d="M20 14C18.5 8.5 13.5 5 8 5c-3.5 0-6 2-6 2"/></svg></button>
     <div class="sb-sep"></div>
     <button class="sb-btn" id="sb-bg" title="Page background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 3v18"/></svg></button>
     <div class="sb-sep"></div>
@@ -293,6 +293,7 @@ let dpr=Math.max(1,window.devicePixelRatio||1);
 const COLORS=['#15181d','#ffffff','#E5484D','#F4B740','#46A758','#1f6feb','#8E4EC6','#EC4899'];
 const SIZES=[2,4,7,12,20];
 const DEF_BG={type:'grid',color:'#ffffff'};
+let activeBg={...DEF_BG}; // tracks last chosen background; new blank pages inherit it
 let pages=[newPage()], cur=0;
 let view={scale:1,x:0,y:0};
 pages[0].view=view;
@@ -770,7 +771,7 @@ $('#sb-redo').addEventListener('click',redo);
 $('#sb-zoomin').addEventListener('click',()=>zoomBy(1.15));
 $('#sb-zoomout').addEventListener('click',()=>zoomBy(1/1.15));
 $('#sb-zoomfit').addEventListener('click',()=>{fitView();render();});
-$('#sb-addpage').addEventListener('click',()=>{pushUndo();page().view={...view};pages.splice(cur+1,0,newPage());cur++;view={...page().view};updatePageLbl();render();toast('Blank page added');});
+$('#sb-addpage').addEventListener('click',()=>{pushUndo();page().view={...view};const np=newPage();np.bg={...activeBg};pages.splice(cur+1,0,np);cur++;view={...page().view};updatePageLbl();render();toast('Blank page added');});
 
 /* ============================== background menu ============================== */
 const bgMenu=popup($('#sb-bg'),[
@@ -780,7 +781,7 @@ const bgMenu=popup($('#sb-bg'),[
   {label:'Dots',act:()=>setBg({type:'dots',color:'#ffffff'})},
   {label:'Blackboard',act:()=>setBg({type:'black'})},
 ]);
-function setBg(bg){pushUndo();page().bg=bg;render();bgMenu.hide();}
+function setBg(bg){pushUndo();page().bg=bg;activeBg={...bg};render();bgMenu.hide();}
 
 /* ============================== export menu ============================== */
 const exMenu=popup($('#sb-export'),[
