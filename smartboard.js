@@ -57,7 +57,9 @@ var MARKUP = `
     <button class="sb-btn" id="sb-export" title="Save / export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg></button>
     <button class="sb-btn" id="sb-full" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
     <div class="sb-sep" id="sb-lang-sep" style="display:none"></div>
-    <button class="sb-btn" id="sb-lang-toggle" title="Switch language / \u092d\u093e\u0937\u093e \u092c\u0926\u0932\u0947\u0902" style="display:none;font-size:12px;font-weight:700;letter-spacing:.04em;padding:0 10px;min-width:52px;">\u0939\u093f\u0902\u0926\u0940</button>
+    <button class="sb-btn sb-lang-mode-btn" id="sb-lang-en" data-lang="en" title="English" style="display:none;font-size:12px;font-weight:700;letter-spacing:.04em;padding:0 10px;min-width:44px;">EN</button>
+    <button class="sb-btn sb-lang-mode-btn" id="sb-lang-hi" data-lang="hi" title="\u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902 \u0926\u0947\u0916\u0947\u0902" style="display:none;font-size:12px;font-weight:700;letter-spacing:.04em;padding:0 10px;min-width:44px;">\u0939\u093f\u0902\u0926\u0940</button>
+    <button class="sb-btn sb-lang-mode-btn" id="sb-lang-both" data-lang="both" title="Show English & \u0939\u093f\u0902\u0926\u0940 side by side" style="display:none;font-size:11px;font-weight:700;letter-spacing:.03em;padding:0 8px;min-width:52px;">EN+\u0939\u093f</button>
   </div>
 
   <!-- TOOL DOCK -->
@@ -927,8 +929,7 @@ function startWithQuizJSON(f){
         toast(`Quiz loaded · ${out.length} question${out.length>1?'s':''} · ready for drawing`);
         // Show language toggle in the top bar when Hindi content exists
         if(hasHindi){
-          const langBtn=$('#sb-lang-toggle'), langSep=$('#sb-lang-sep');
-          if(langBtn){ langBtn.style.display=''; if(langSep) langSep.style.display=''; updateLangBtn(); }
+          showLangButtons(); updateLangBtn();
         }
       }catch(err){
         console.error(err);
@@ -995,17 +996,27 @@ function startWithQuizJSON(f){
 
 /* Language button helpers (top bar) */
 function updateLangBtn(){
-  const btn=$('#sb-lang-toggle');
-  if(!btn) return;
-  if(quizLang==='en'){ btn.textContent='हिंदी'; btn.title='Switch to Hindi'; }
-  else if(quizLang==='hi'){ btn.textContent='EN+हि'; btn.title='Show both languages side by side'; }
-  else{ btn.textContent='English'; btn.title='Switch to English'; }
+  ['en','hi','both'].forEach(l=>{
+    const btn=$('#sb-lang-'+l);
+    if(!btn) return;
+    const active=quizLang===l;
+    btn.style.background=active?'rgba(99,102,241,.28)':'';
+    btn.style.color=active?'#c7d2fe':'';
+    btn.style.borderColor=active?'rgba(99,102,241,.7)':'';
+    btn.style.border=active?'1.5px solid rgba(99,102,241,.7)':'';
+  });
+}
+function showLangButtons(){
+  ['en','hi','both'].forEach(l=>{
+    const btn=$('#sb-lang-'+l); if(btn) btn.style.display='';
+  });
+  const sep=$('#sb-lang-sep'); if(sep) sep.style.display='';
 }
 (function(){
   document.addEventListener('click',e=>{
-    if(e.target&&e.target.id==='sb-lang-toggle'){
-      const next=quizLang==='en'?'hi':quizLang==='hi'?'both':'en';
-      rerenderQuizInLang(next);
+    const btn=e.target.closest('.sb-lang-mode-btn');
+    if(btn&&btn.dataset.lang){
+      rerenderQuizInLang(btn.dataset.lang);
       updateLangBtn();
     }
   });
@@ -1164,8 +1175,8 @@ function questionCardBilingualHTML(post,i,total,topicName){
     if(!opts.length) return [0,1,2].map(()=>`<div style="margin-top:20px;border-bottom:2px solid #cbd5e1;height:36px;"></div>`).join('');
     return opts.map((o,idx)=>`
       <div style="display:flex;gap:12px;align-items:flex-start;margin:0;padding:0;">
-        <div style="flex:0 0 24px;font:700 16px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
-        <div style="flex:1;font:400 18px/1.3 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
+        <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+        <div style="flex:1;font:400 24px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
       </div>`).join('');
   }
   return `<div style="width:1280px;height:720px;background:#fff;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;">
@@ -1179,13 +1190,13 @@ function questionCardBilingualHTML(post,i,total,topicName){
       <!-- English column -->
       <div style="flex:1;padding:10px 14px 10px 0;border-right:2px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#3b82f6;margin-bottom:8px;flex:none;">English</div>
-        <div style="font:600 20px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
+        <div style="font:600 28px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(enOpts,enFont)}</div>
       </div>
       <!-- Hindi column -->
       <div style="flex:1;padding:10px 0 10px 14px;display:flex;flex-direction:column;overflow:hidden;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8b5cf6;margin-bottom:8px;flex:none;">हिंदी</div>
-        <div style="font:600 20px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
+        <div style="font:600 28px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(hiOpts,hiFont)}</div>
       </div>
     </div>
