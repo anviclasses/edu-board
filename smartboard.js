@@ -60,6 +60,12 @@ var MARKUP = `
     <button class="sb-btn sb-lang-mode-btn" id="sb-lang-en" data-lang="en" title="English" style="display:none;font-size:12px;font-weight:700;letter-spacing:.04em;padding:0 10px;min-width:44px;">EN</button>
     <button class="sb-btn sb-lang-mode-btn" id="sb-lang-hi" data-lang="hi" title="\u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902 \u0926\u0947\u0916\u0947\u0902" style="display:none;font-size:12px;font-weight:700;letter-spacing:.04em;padding:0 10px;min-width:44px;">\u0939\u093f\u0902\u0926\u0940</button>
     <button class="sb-btn sb-lang-mode-btn" id="sb-lang-both" data-lang="both" title="Show English & \u0939\u093f\u0902\u0926\u0940 side by side" style="display:none;font-size:11px;font-weight:700;letter-spacing:.03em;padding:0 8px;min-width:52px;">EN+\u0939\u093f</button>
+    <div class="sb-sep" id="sb-fsz-sep" style="display:none"></div>
+    <div id="sb-fontsizer" title="Question font size">
+      <button class="sb-fsz-btn" id="sb-fsz-dec" title="Smaller question text" aria-label="Decrease question font size"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+      <span id="sb-fsz-label">100%</span>
+      <button class="sb-fsz-btn" id="sb-fsz-inc" title="Larger question text" aria-label="Increase question font size"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
   </div>
 
   <!-- TOOL DOCK -->
@@ -919,6 +925,7 @@ function startWithQuizJSON(f){
         await ensureH2C();
         // Cache questions for language re-rendering
         quizQsCache=qs; quizTopicCache=topicName;
+        quizFontScale=1; // reset question font size for each newly loaded quiz
         const out=await renderMCQPages(qs,topicName,quizLang);
         if(!out.length) throw new Error('no pages rendered');
         pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
@@ -927,6 +934,8 @@ function startWithQuizJSON(f){
         undoStack=[]; redoStack=[];
         updateUndo(); updatePageLbl(); render();
         toast(`Quiz loaded · ${out.length} question${out.length>1?'s':''} · ready for drawing`);
+        // Show the question font-size resizer for any loaded quiz
+        showFontSizer(); updateFszLabel();
         // Show language toggle in the top bar when Hindi content exists
         if(hasHindi){
           showLangButtons(); updateLangBtn();
@@ -1020,6 +1029,46 @@ function showLangButtons(){
       updateLangBtn();
     }
   });
+})();
+
+/* ---------- Question font-size resizer (top bar) ---------- */
+// Lets the presenter shrink/enlarge the question + option text of a loaded
+// quiz on the fly — handy for matching room size / projector distance —
+// without needing to re-export or re-author the quiz JSON.
+function showFontSizer(){
+  const wrap=$('#sb-fontsizer'); if(wrap) wrap.style.display='flex';
+  const sep=$('#sb-fsz-sep'); if(sep) sep.style.display='';
+}
+function updateFszLabel(){
+  const lbl=$('#sb-fsz-label'); if(lbl) lbl.textContent=Math.round((quizFontScale||1)*100)+'%';
+  const dec=$('#sb-fsz-dec'); if(dec) dec.disabled = quizFontScale<=QUIZ_FONT_MIN+1e-9;
+  const inc=$('#sb-fsz-inc'); if(inc) inc.disabled = quizFontScale>=QUIZ_FONT_MAX-1e-9;
+}
+async function rerenderQuizFontSize(delta){
+  if(!quizQsCache||!quizQsCache.length) return;
+  const next=Math.min(QUIZ_FONT_MAX,Math.max(QUIZ_FONT_MIN,+(quizFontScale+delta).toFixed(2)));
+  if(next===quizFontScale){ updateFszLabel(); return; }
+  quizFontScale=next;
+  updateFszLabel();
+  try{
+    showLoad('Resizing question text…');
+    await ensureH2C();
+    const out=await renderMCQPages(quizQsCache,quizTopicCache,quizLang);
+    if(!out.length) throw new Error('no pages');
+    const prevCur=Math.min(cur,out.length-1);
+    pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
+    out.forEach(d=>ensureImg(d.src));
+    cur=prevCur; fitView(); pages[cur].view={...view}; selection=null;
+    undoStack=[]; redoStack=[];
+    updateUndo(); updatePageLbl(); render();
+    toast(`Question text · ${Math.round(quizFontScale*100)}%`);
+  }catch(e){ console.error(e); toast('Could not resize question text'); }
+  hideLoad();
+}
+(function(){
+  const dec=$('#sb-fsz-dec'), inc=$('#sb-fsz-inc');
+  if(dec) dec.addEventListener('click',()=>rerenderQuizFontSize(-QUIZ_FONT_STEP));
+  if(inc) inc.addEventListener('click',()=>rerenderQuizFontSize(QUIZ_FONT_STEP));
 })();
 
 /* ============================== open-board overlay picker ============================== */
@@ -1124,6 +1173,8 @@ let h2cReady=false;
 let quizLang='en';           // 'en' or 'hi'
 let quizQsCache=null;         // last loaded questions array
 let quizTopicCache=''        // last loaded topic name
+let quizFontScale=1;          // question/option text size multiplier (font resizer setting)
+const QUIZ_FONT_MIN=0.7, QUIZ_FONT_MAX=1.6, QUIZ_FONT_STEP=0.1;
 async function ensureH2C(){
   if(h2cReady||window.html2canvas){h2cReady=true;return;}
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
@@ -1140,13 +1191,15 @@ function questionCardHTML(post,i,total,topicName,lang){
   const questionLabel = isHi ? `प्रश्न ${i+1} / ${total}` : `Question ${i+1} of ${total}`;
   // Choose font: Hindi needs a Devanagari-supporting font
   const bodyFont = isHi ? "'Noto Sans Devanagari','Mangal','Arial Unicode MS',Arial,sans-serif" : "'Segoe UI',Arial,sans-serif";
+  const fs=quizFontScale||1;
+  const qPx=Math.round(32*fs), optPx=Math.round(28*fs), letterPx=Math.round(20*fs);
   const opts=rawOpts;
   const letters=['A','B','C','D','E','F','G','H'];
   const optsHtml=opts.length
     ? opts.map((o,idx)=>`
         <div style="display:flex;gap:18px;align-items:flex-start;margin:0;padding:0;border:none;">
-          <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
-          <div style="flex:1;font:400 28px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
+          <div style="flex:0 0 32px;font:700 ${letterPx}px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+          <div style="flex:1;font:400 ${optPx}px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
         </div>`).join('')
     : [0,1,2].map(()=>`<div style="margin-top:32px;border-bottom:2px solid #cbd5e1;height:44px;"></div>`).join('');
   return `<div style="width:1280px;height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:${bodyFont};display:flex;flex-direction:column;">
@@ -1154,7 +1207,7 @@ function questionCardHTML(post,i,total,topicName,lang){
       <div style="font:700 13px/1 Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">${topicDisplay}</div>
       <div style="font:600 13px/1 Arial,sans-serif;color:#94a3b8;">${questionLabel}</div>
     </div>
-    <div style="font:600 32px/1.4 ${bodyFont};color:#0f172a;margin-bottom:8px;flex:none;">${questionContent}</div>
+    <div style="font:600 ${qPx}px/1.4 ${bodyFont};color:#0f172a;margin-bottom:8px;flex:none;">${questionContent}</div>
     <div style="display:flex;flex-direction:column;gap:12px;flex:none;">${optsHtml}</div>
   </div>`;
 }
@@ -1171,12 +1224,14 @@ function questionCardBilingualHTML(post,i,total,topicName){
   const hiOpts=Array.isArray(mi._aimcq_options_hi)&&mi._aimcq_options_hi.length?mi._aimcq_options_hi:enOpts;
   const topicName2=topicName?escapeHtml(topicName):'Quiz';
   const maxOpts=Math.max(enOpts.length,hiOpts.length);
+  const fs=quizFontScale||1;
+  const qPx=Math.round(32*fs), optPx=Math.round(28*fs), letterPx=Math.round(20*fs);
   function colOpts(opts,font){
     if(!opts.length) return [0,1,2].map(()=>`<div style="margin-top:20px;border-bottom:2px solid #cbd5e1;height:36px;"></div>`).join('');
     return opts.map((o,idx)=>`
       <div style="display:flex;gap:12px;align-items:flex-start;margin:0;padding:0;">
-        <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
-        <div style="flex:1;font:400 28px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
+        <div style="flex:0 0 32px;font:700 ${letterPx}px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+        <div style="flex:1;font:400 ${optPx}px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
       </div>`).join('');
   }
   return `<div style="width:1280px;height:720px;background:#fff;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;">
@@ -1190,13 +1245,13 @@ function questionCardBilingualHTML(post,i,total,topicName){
       <!-- English column -->
       <div style="flex:1;padding:10px 14px 10px 0;border-right:2px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#3b82f6;margin-bottom:8px;flex:none;">English</div>
-        <div style="font:600 32px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
+        <div style="font:600 ${qPx}px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(enOpts,enFont)}</div>
       </div>
       <!-- Hindi column -->
       <div style="flex:1;padding:10px 0 10px 14px;display:flex;flex-direction:column;overflow:hidden;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8b5cf6;margin-bottom:8px;flex:none;">हिंदी</div>
-        <div style="font:600 32px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
+        <div style="font:600 ${qPx}px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(hiOpts,hiFont)}</div>
       </div>
     </div>
