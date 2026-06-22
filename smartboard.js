@@ -798,7 +798,7 @@ function popup(anchor, items){
   const api={show(){const a=$('#sb-app').getBoundingClientRect();const r=anchor.getBoundingClientRect();el.style.display='flex';el.style.top=(r.bottom-a.top+8)+'px';el.style.left=Math.max(6,Math.min(r.left-a.left,a.width-210))+'px';},hide(){el.style.display='none';}};
   popup._all=popup._all||[]; popup._all.push(api);
   anchor.addEventListener('click',e=>{e.stopPropagation();const open=el.style.display==='flex';popup._all.forEach(p=>{if(p!==api)p.hide();});api[open?'hide':'show']();});
-  document.addEventListener('click',()=>api.hide());
+  host.addEventListener('click',()=>api.hide());
   el.addEventListener('click',e=>e.stopPropagation());
   return api;
 }
@@ -996,7 +996,7 @@ function startWithQuizJSON(f){
   wfile.addEventListener('change',e=>{ peekFileForHindi(e.target.files[0]); },true);
 
   // Welcome screen lang button handlers
-  document.querySelectorAll('.sb-lang-btn').forEach(btn=>{
+  root.querySelectorAll('.sb-lang-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       quizLang=btn.dataset.lang||'en';
       updateWelcomeLangBtns();
@@ -1023,7 +1023,7 @@ function showLangButtons(){
   const sep=$('#sb-lang-sep'); if(sep) sep.style.display='';
 }
 (function(){
-  document.addEventListener('click',e=>{
+  host.addEventListener('click',e=>{
     const btn=e.target.closest('.sb-lang-mode-btn');
     if(btn&&btn.dataset.lang){
       rerenderQuizInLang(btn.dataset.lang);
@@ -1128,7 +1128,7 @@ function nativeBrowse(inp){
   drop.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)handlePicked(f);});
   pk.addEventListener('dragover',e=>{e.preventDefault();});
   pk.addEventListener('drop',e=>{e.preventDefault();var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)handlePicked(f);});
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pk.classList.contains('open'))closePicker(); });
+  host.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pk.classList.contains('open'))closePicker(); });
 })();
 /* drop a board file anywhere on the board to restore it (no dialog, stays fullscreen).
    PDF/PPTX are intentionally NOT accepted here — import those from the welcome screen. */
@@ -1189,7 +1189,7 @@ let h2cReady=false;
 /* --- Language support (English / Hindi) --- */
 let quizLang='en';           // 'en' or 'hi'
 let quizQsCache=null;         // last loaded questions array
-let quizTopicCache=''        // last loaded topic name
+let quizTopicCache='';        // last loaded topic name
 let quizFontScale=1;          // question/option text size multiplier (font resizer setting)
 const QUIZ_FONT_MIN=0.4, QUIZ_FONT_MAX=3.0, QUIZ_FONT_STEP=0.1;
 async function ensureH2C(){
@@ -1447,7 +1447,7 @@ async function exportPDF(){
   hideLoad();
 }
 function saveBoard(){const blob=new Blob([serAll()],{type:'application/json'});download(blob,'board.smartboard');toast('Board saved');}
-function openBoard(f){const r=new FileReader();r.onload=()=>{try{undoStack=[];redoStack=[];loadAll(r.result);updateUndo();updatePageLbl();fitView?.();view=page().view||view;render();toast('Board loaded');}catch(e){toast('Invalid board file');}};r.readAsText(f);}
+function openBoard(f){const r=new FileReader();r.onload=()=>{try{undoStack=[];redoStack=[];loadAll(r.result);cur=Math.min(cur,pages.length-1);view={...page().view};updateUndo();updatePageLbl();if(page().bg.type==='image')fitView();render();toast('Board loaded');}catch(e){toast('Invalid board file');}};r.readAsText(f);}
 
 /* ============================== screen shade ============================== */
 const shade=$('#sb-shade'); let shadeH=0;
