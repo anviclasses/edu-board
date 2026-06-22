@@ -1219,7 +1219,7 @@ function questionCardHTML(post,i,total,topicName,lang){
           <div style="flex:1;font:400 ${optPx}px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
         </div>`).join('')
     : [0,1,2].map(()=>`<div style="margin-top:32px;border-bottom:2px solid #cbd5e1;height:44px;"></div>`).join('');
-  return `<div style="width:1280px;height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:${bodyFont};display:flex;flex-direction:column;">
+  return `<div style="width:1280px;min-height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:${bodyFont};display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex:none;">
       <div style="font:700 13px/1 Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">${topicDisplay}</div>
       <div style="font:600 13px/1 Arial,sans-serif;color:#94a3b8;">${questionLabel}</div>
@@ -1251,22 +1251,22 @@ function questionCardBilingualHTML(post,i,total,topicName){
         <div style="flex:1;font:400 ${optPx}px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
       </div>`).join('');
   }
-  return `<div style="width:1280px;height:720px;background:#fff;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;">
+  return `<div style="width:1280px;min-height:720px;background:#fff;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;">
     <!-- Header -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex:none;">
       <div style="font:700 12px/1 Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${topicName2}</div>
       <div style="font:600 12px/1 Arial,sans-serif;color:#94a3b8;">Question ${i+1} of ${total}</div>
     </div>
     <!-- Two-column body -->
-    <div style="display:flex;flex:1;gap:0;min-height:0;">
+    <div style="display:flex;flex:1 1 auto;gap:0;">
       <!-- English column -->
-      <div style="flex:1;padding:10px 14px 10px 0;border-right:2px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="flex:1;padding:10px 14px 10px 0;border-right:2px solid #e2e8f0;display:flex;flex-direction:column;overflow:visible;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#3b82f6;margin-bottom:8px;flex:none;">English</div>
         <div style="font:600 ${qPx}px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(enOpts,enFont)}</div>
       </div>
       <!-- Hindi column -->
-      <div style="flex:1;padding:10px 0 10px 14px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="flex:1;padding:10px 0 10px 14px;display:flex;flex-direction:column;overflow:visible;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8b5cf6;margin-bottom:8px;flex:none;">हिंदी</div>
         <div style="font:600 ${qPx}px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(hiOpts,hiFont)}</div>
@@ -1281,6 +1281,7 @@ async function renderMCQPages(qs,topicName,lang){
   document.body.appendChild(holder);
   const out=[];
   const effectiveLang=lang||quizLang;
+  const BASE_W=1280, BASE_H=720;
   try{
     for(let i=0;i<qs.length;i++){
       showLoad(`Building question ${i+1} of ${qs.length}…`);
@@ -1289,7 +1290,18 @@ async function renderMCQPages(qs,topicName,lang){
       } else {
         holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName,effectiveLang);
       }
-      const c=await window.html2canvas(holder.firstElementChild,{scale:1.5,backgroundColor:'#fff',logging:false});
+      const el=holder.firstElementChild;
+      // The card template uses min-height (not a fixed height) so it can
+      // grow downward when a large font-size setting makes the question +
+      // options taller than the standard slide. Measure the real content
+      // height here, and if it overflows the base slide, stretch the
+      // captured canvas to that full height instead of clipping the text.
+      const naturalH=Math.ceil(el.getBoundingClientRect().height);
+      const neededH=Math.max(BASE_H,naturalH);
+      if(neededH>BASE_H){
+        console.log(`[smartboard] Question ${i+1}/${qs.length}${topicName?` ("${topicName}")`:''} overflowed the ${BASE_H}px slide by ${neededH-BASE_H}px at ${Math.round((quizFontScale||1)*100)}% font size — stretching slide bottom to ${neededH}px instead of shrinking the text.`);
+      }
+      const c=await window.html2canvas(el,{scale:1.5,backgroundColor:'#fff',logging:false,width:BASE_W,height:neededH,windowWidth:BASE_W,windowHeight:neededH});
       out.push({src:c.toDataURL('image/jpeg',0.88),w:c.width,h:c.height});
     }
   }finally{ holder.remove(); }
