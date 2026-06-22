@@ -63,7 +63,8 @@ var MARKUP = `
     <div class="sb-sep" id="sb-fsz-sep" style="display:none"></div>
     <div id="sb-fontsizer" title="Question font size">
       <button class="sb-fsz-btn" id="sb-fsz-dec" title="Smaller question text" aria-label="Decrease question font size"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
-      <span id="sb-fsz-label">100%</span>
+      <input type="number" id="sb-fsz-input" value="100" min="40" max="300" step="10" title="Question font size %" aria-label="Question font size percent">
+      <span id="sb-fsz-pct">%</span>
       <button class="sb-fsz-btn" id="sb-fsz-inc" title="Larger question text" aria-label="Increase question font size"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     </div>
   </div>
@@ -1040,13 +1041,18 @@ function showFontSizer(){
   const sep=$('#sb-fsz-sep'); if(sep) sep.style.display='';
 }
 function updateFszLabel(){
-  const lbl=$('#sb-fsz-label'); if(lbl) lbl.textContent=Math.round((quizFontScale||1)*100)+'%';
+  const inp=$('#sb-fsz-input'); if(inp && document.activeElement!==inp) inp.value=Math.round((quizFontScale||1)*100);
   const dec=$('#sb-fsz-dec'); if(dec) dec.disabled = quizFontScale<=QUIZ_FONT_MIN+1e-9;
   const inc=$('#sb-fsz-inc'); if(inc) inc.disabled = quizFontScale>=QUIZ_FONT_MAX-1e-9;
 }
 async function rerenderQuizFontSize(delta){
   if(!quizQsCache||!quizQsCache.length) return;
   const next=Math.min(QUIZ_FONT_MAX,Math.max(QUIZ_FONT_MIN,+(quizFontScale+delta).toFixed(2)));
+  await applyQuizFontScale(next);
+}
+async function applyQuizFontScale(scale){
+  if(!quizQsCache||!quizQsCache.length) return;
+  const next=Math.min(QUIZ_FONT_MAX,Math.max(QUIZ_FONT_MIN,+(scale).toFixed(2)));
   if(next===quizFontScale){ updateFszLabel(); return; }
   quizFontScale=next;
   updateFszLabel();
@@ -1066,9 +1072,20 @@ async function rerenderQuizFontSize(delta){
   hideLoad();
 }
 (function(){
-  const dec=$('#sb-fsz-dec'), inc=$('#sb-fsz-inc');
+  const dec=$('#sb-fsz-dec'), inc=$('#sb-fsz-inc'), inp=$('#sb-fsz-input');
   if(dec) dec.addEventListener('click',()=>rerenderQuizFontSize(-QUIZ_FONT_STEP));
   if(inc) inc.addEventListener('click',()=>rerenderQuizFontSize(QUIZ_FONT_STEP));
+  if(inp){
+    const commit=()=>{
+      let pct=parseFloat(inp.value);
+      if(!isFinite(pct)) pct=Math.round(quizFontScale*100);
+      pct=Math.min(300,Math.max(40,Math.round(pct)));
+      inp.value=pct;
+      applyQuizFontScale(pct/100);
+    };
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } });
+    inp.addEventListener('blur',commit);
+  }
 })();
 
 /* ============================== open-board overlay picker ============================== */
@@ -1174,7 +1191,7 @@ let quizLang='en';           // 'en' or 'hi'
 let quizQsCache=null;         // last loaded questions array
 let quizTopicCache=''        // last loaded topic name
 let quizFontScale=1;          // question/option text size multiplier (font resizer setting)
-const QUIZ_FONT_MIN=0.7, QUIZ_FONT_MAX=1.6, QUIZ_FONT_STEP=0.1;
+const QUIZ_FONT_MIN=0.4, QUIZ_FONT_MAX=3.0, QUIZ_FONT_STEP=0.1;
 async function ensureH2C(){
   if(h2cReady||window.html2canvas){h2cReady=true;return;}
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
