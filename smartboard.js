@@ -1145,8 +1145,8 @@ function questionCardHTML(post,i,total,topicName,lang){
   const optsHtml=opts.length
     ? opts.map((o,idx)=>`
         <div style="display:flex;gap:18px;align-items:flex-start;margin:0;padding:0;border:none;">
-          <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
-          <div style="flex:1;font:400 24px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
+          <div style="flex:0 0 32px;font:700 24px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+          <div style="flex:1;font:400 28px/1.25 ${bodyFont};color:#1e293b;">${escapeHtml(o.text)}</div>
         </div>`).join('')
     : [0,1,2].map(()=>`<div style="margin-top:32px;border-bottom:2px solid #cbd5e1;height:44px;"></div>`).join('');
   return `<div style="width:1280px;height:720px;background:#fff;padding:11px 12px;box-sizing:border-box;font-family:${bodyFont};display:flex;flex-direction:column;">
@@ -1154,7 +1154,7 @@ function questionCardHTML(post,i,total,topicName,lang){
       <div style="font:700 13px/1 Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">${topicDisplay}</div>
       <div style="font:600 13px/1 Arial,sans-serif;color:#94a3b8;">${questionLabel}</div>
     </div>
-    <div style="font:600 28px/1.4 ${bodyFont};color:#0f172a;margin-bottom:8px;flex:none;">${questionContent}</div>
+    <div style="font:600 32px/1.4 ${bodyFont};color:#0f172a;margin-bottom:8px;flex:none;">${questionContent}</div>
     <div style="display:flex;flex-direction:column;gap:12px;flex:none;">${optsHtml}</div>
   </div>`;
 }
@@ -1175,8 +1175,8 @@ function questionCardBilingualHTML(post,i,total,topicName){
     if(!opts.length) return [0,1,2].map(()=>`<div style="margin-top:20px;border-bottom:2px solid #cbd5e1;height:36px;"></div>`).join('');
     return opts.map((o,idx)=>`
       <div style="display:flex;gap:12px;align-items:flex-start;margin:0;padding:0;">
-        <div style="flex:0 0 32px;font:700 20px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
-        <div style="flex:1;font:400 24px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
+        <div style="flex:0 0 32px;font:700 24px/1.2 Arial,sans-serif;color:#475569;">${letters[idx]||(idx+1)}.</div>
+        <div style="flex:1;font:400 28px/1.25 ${font};color:#1e293b;">${escapeHtml(o.text)}</div>
       </div>`).join('');
   }
   return `<div style="width:1280px;height:720px;background:#fff;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;">
@@ -1190,13 +1190,13 @@ function questionCardBilingualHTML(post,i,total,topicName){
       <!-- English column -->
       <div style="flex:1;padding:10px 14px 10px 0;border-right:2px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#3b82f6;margin-bottom:8px;flex:none;">English</div>
-        <div style="font:600 28px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
+        <div style="font:600 32px/1.4 ${enFont};color:#0f172a;margin-bottom:10px;flex:none;">${enContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(enOpts,enFont)}</div>
       </div>
       <!-- Hindi column -->
       <div style="flex:1;padding:10px 0 10px 14px;display:flex;flex-direction:column;overflow:hidden;">
         <div style="font:700 11px/1 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8b5cf6;margin-bottom:8px;flex:none;">हिंदी</div>
-        <div style="font:600 28px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
+        <div style="font:600 32px/1.4 ${hiFont};color:#0f172a;margin-bottom:10px;flex:none;">${hiContent}</div>
         <div style="display:flex;flex-direction:column;gap:10px;flex:none;">${colOpts(hiOpts,hiFont)}</div>
       </div>
     </div>
