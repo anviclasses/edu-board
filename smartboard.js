@@ -929,7 +929,7 @@ function startWithQuizJSON(f){
         quizFontScale=1; // reset question font size for each newly loaded quiz
         const out=await renderMCQPages(qs,topicName,quizLang);
         if(!out.length) throw new Error('no pages rendered');
-        pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
+        pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true,fitWidth:true}));
         out.forEach(d=>ensureImg(d.src));
         cur=0; fitView(); pages[0].view={...view}; selection=null;
         undoStack=[]; redoStack=[];
@@ -1062,7 +1062,7 @@ async function applyQuizFontScale(scale){
     const out=await renderMCQPages(quizQsCache,quizTopicCache,quizLang);
     if(!out.length) throw new Error('no pages');
     const prevCur=Math.min(cur,out.length-1);
-    pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
+    pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true,fitWidth:true}));
     out.forEach(d=>ensureImg(d.src));
     cur=prevCur; fitView(); pages[cur].view={...view}; selection=null;
     undoStack=[]; redoStack=[];
@@ -1291,17 +1291,19 @@ async function renderMCQPages(qs,topicName,lang){
         holder.innerHTML=questionCardHTML(qs[i],i,qs.length,topicName,effectiveLang);
       }
       const el=holder.firstElementChild;
-      // The card template uses min-height (not a fixed height) so it can
-      // grow downward when a large font-size setting makes the question +
-      // options taller than the standard slide. Measure the real content
-      // height here, and if it overflows the base slide, stretch the
-      // captured canvas to that full height instead of clipping the text.
+      // The card template fixes width at 1280px always and never alters
+      // font size on its own — it only uses min-height:720px so the box
+      // itself grows downward when content (at the chosen font %) is taller
+      // than the standard slide. We capture the element's own natural box
+      // as-is (no forced width/height passed to html2canvas), so the
+      // screenshot always matches exactly what's really on screen: fixed
+      // width, fixed font size, bottom edge stretched only if needed.
+      const naturalW=Math.ceil(el.getBoundingClientRect().width);
       const naturalH=Math.ceil(el.getBoundingClientRect().height);
-      const neededH=Math.max(BASE_H,naturalH);
-      if(neededH>BASE_H){
-        console.log(`[smartboard] Question ${i+1}/${qs.length}${topicName?` ("${topicName}")`:''} overflowed the ${BASE_H}px slide by ${neededH-BASE_H}px at ${Math.round((quizFontScale||1)*100)}% font size — stretching slide bottom to ${neededH}px instead of shrinking the text.`);
+      if(naturalH>BASE_H){
+        console.log(`[smartboard] Question ${i+1}/${qs.length}${topicName?` ("${topicName}")`:''} overflowed the ${BASE_H}px slide by ${naturalH-BASE_H}px at ${Math.round((quizFontScale||1)*100)}% font size — stretching slide bottom to ${naturalH}px (width stays ${naturalW}px, font size unchanged).`);
       }
-      const c=await window.html2canvas(el,{scale:1.5,backgroundColor:'#fff',logging:false,width:BASE_W,height:neededH,windowWidth:BASE_W,windowHeight:neededH});
+      const c=await window.html2canvas(el,{scale:1.5,backgroundColor:'#fff',logging:false});
       out.push({src:c.toDataURL('image/jpeg',0.88),w:c.width,h:c.height});
     }
   }finally{ holder.remove(); }
@@ -1319,7 +1321,7 @@ async function rerenderQuizInLang(lang){
     if(!out.length) throw new Error('no pages');
     // Preserve current page index
     const prevCur=Math.min(cur,out.length-1);
-    pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true}));
+    pages=out.map(d=>({bg:{type:'image',src:d.src,w:d.w,h:d.h},view:{scale:1,x:0,y:0},objs:[],autofit:true,fitWidth:true}));
     out.forEach(d=>ensureImg(d.src));
     cur=prevCur; fitView(); pages[cur].view={...view}; selection=null;
     undoStack=[]; redoStack=[];
@@ -1392,8 +1394,22 @@ function addDocPages(list){
 function fitView(){
   const pg=page(); if(pg.bg.type!=='image'){view={scale:1,x:0,y:0};return;}
   const w=cv.clientWidth,h=cv.clientHeight; const m=0.94;
-  const s=Math.min(w*m/pg.bg.w, h*m/pg.bg.h);
-  view={scale:s, x:(w-pg.bg.w*s)/2, y:(h-pg.bg.h*s)/2};
+  let s,x,y;
+  if(pg.fitWidth){
+    // Quiz slides: every slide shares the same 1280px width, but a
+    // question that overflows at a big font size gets extra height
+    // (stretched bottom) instead of a smaller font. Scaling by width only
+    // keeps that width — and the on-screen text size — identical across
+    // every question; only the page's visible height differs, with any
+    // overflow extending below rather than shrinking the page to fit.
+    s=w*m/pg.bg.w;
+    x=(w-pg.bg.w*s)/2;
+    y=Math.max((h-h*m)/2, (h-pg.bg.h*s)/2);
+  } else {
+    s=Math.min(w*m/pg.bg.w, h*m/pg.bg.h);
+    x=(w-pg.bg.w*s)/2; y=(h-pg.bg.h*s)/2;
+  }
+  view={scale:s, x, y};
   pg.autofit=true; // mark this page as "fit to screen" so resize/rotate/fullscreen keep it fitted
 }
 // Any manual zoom or pan on the current page takes it out of auto-fit mode,
