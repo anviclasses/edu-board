@@ -279,6 +279,56 @@ function boot(host){
   })();
   /* ── End domain lock ── */
 
+  /* ── Runtime JWT check ── Verifies this page received a valid signed token ── */
+  (function(){
+    /* The loader (smartboard-loader.js) stores the JWT in a global before
+       loading this script. If it's missing or wrong, the board is disabled. */
+    var jwt = window.__sbJwt || '';
+    if(!jwt){
+      host.innerHTML='';
+      host.style.cssText='display:flex;align-items:center;justify-content:center;min-height:120px;'+
+        'background:#0f1216;border-radius:12px;font-family:system-ui,sans-serif;padding:24px;';
+      var _m=document.createElement('div');
+      _m.style.cssText='text-align:center;color:#9aa3b0;font-size:13px;line-height:1.6;max-width:340px;';
+      _m.innerHTML='<b style="color:#E8EBEF;font-size:15px;">Smartboard</b><br>'+
+        'Missing runtime authorisation.<br>'+
+        'Please load this tool via the official embed code.';
+      host.appendChild(_m);
+      throw new Error('[Smartboard] Missing JWT — use official embed loader');
+    }
+
+    /* Decode JWT payload (signature already verified by the Worker before
+       serving this file, but we double-check domain + expiry client-side
+       as a second line of defence). */
+    try{
+      var parts = jwt.split('.');
+      if(parts.length!==3) throw new Error('bad jwt');
+      var pad = function(s){ while(s.length%4) s+='='; return s; };
+      var payload = JSON.parse(atob(pad(parts[1].replace(/-/g,'+').replace(/_/g,'/'))));
+      var nowSec  = Math.floor(Date.now()/1000);
+      var domain  = (location.hostname||'').toLowerCase().replace(/^www\./,'');
+
+      if(payload.exp && nowSec > payload.exp){
+        throw new Error('JWT expired');
+      }
+      if(payload.domain && payload.domain !== domain){
+        throw new Error('JWT domain mismatch: '+payload.domain+' vs '+domain);
+      }
+    }catch(e){
+      host.innerHTML='';
+      host.style.cssText='display:flex;align-items:center;justify-content:center;min-height:120px;'+
+        'background:#0f1216;border-radius:12px;font-family:system-ui,sans-serif;padding:24px;';
+      var _m2=document.createElement('div');
+      _m2.style.cssText='text-align:center;color:#9aa3b0;font-size:13px;line-height:1.6;max-width:340px;';
+      _m2.innerHTML='<b style="color:#E8EBEF;font-size:15px;">Smartboard</b><br>'+
+        'Authorisation failed: '+e.message+'.<br>'+
+        'Please reload the page.';
+      host.appendChild(_m2);
+      throw new Error('[Smartboard] JWT check failed: '+e.message);
+    }
+  })();
+  /* ── End runtime JWT check ── */
+
   host.setAttribute('data-sb-mounted','1');
   host.classList.add('smartboard-embed');
   if(!host.hasAttribute('tabindex')) host.setAttribute('tabindex','0');
