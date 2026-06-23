@@ -249,22 +249,31 @@ function boot(host){
 
   /* ── Domain lock ── Only runs on the authorised domain ── */
   (function(){
-    var allowed=['animalhusbandryinfo.blogspot.com','live.eduboard.in'];
+    var allowed=[
+      'animalhusbandryinfo.blogspot.com',
+      'live.eduboard.in'
+    ];
     var h=(location.hostname||'').toLowerCase().replace(/^www\./,'');
-    if(allowed.indexOf(h)!==-1) return; // authorised — proceed normally
+    /* Check exact match OR subdomain match (e.g. sub.live.eduboard.in) */
+    var ok=allowed.some(function(d){ return h===d || h.slice(-(d.length+1))==='.'+d; });
+    if(ok) return; // authorised — proceed normally
     // Unauthorised domain: blank the host element and show a clear message
     host.innerHTML='';
     host.style.cssText='display:flex;align-items:center;justify-content:center;min-height:120px;'+
       'background:#0f1216;border-radius:12px;font-family:system-ui,sans-serif;padding:24px;';
     var msg=document.createElement('div');
-    msg.style.cssText='text-align:center;color:#9aa3b0;font-size:13.5px;line-height:1.6;max-width:340px;';
+    msg.style.cssText='text-align:center;color:#9aa3b0;font-size:13.5px;line-height:1.6;max-width:400px;';
     msg.innerHTML='<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#F26D6D" stroke-width="1.7" '+
       'stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px">'+
       '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><br>'+
       '<b style="color:#E8EBEF;font-size:15px;">Access Restricted</b><br>'+
-      'This tool is licensed for use on<br>'+
+      'This tool is licensed for use on authorised domains only.<br>'+
+      '<span style="display:inline-block;margin-top:8px;line-height:2;">'+
       '<a href="https://animalhusbandryinfo.blogspot.com" style="color:#F4B740;text-decoration:none;" '+
-      'target="_blank" rel="noopener">animalhusbandryinfo.blogspot.com</a> only.';
+      'target="_blank" rel="noopener">animalhusbandryinfo.blogspot.com</a><br>'+
+      '<a href="https://live.eduboard.in" style="color:#F4B740;text-decoration:none;" '+
+      'target="_blank" rel="noopener">live.eduboard.in</a>'+
+      '</span>';
     host.appendChild(msg);
     throw new Error('[Smartboard] Unauthorised domain: '+h);
   })();
@@ -810,7 +819,9 @@ function setBg(bg){pushUndo();page().bg=bg;activeBg={...bg};render();bgMenu.hide
 /* ============================== export menu ============================== */
 const exMenu=popup($('#sb-export'),[
   {label:'Save page as image',act:()=>{exportPNG();exMenu.hide();}},
+  {label:'Save page as image (full content)',act:()=>{exportPNGFull();exMenu.hide();}},
   {label:'Export all pages as PDF',act:()=>{exportPDF();exMenu.hide();}},
+  {label:'Export all pages as PDF (full content)',act:()=>{exportPDFFull();exMenu.hide();}},
   {label:'Save board file',act:()=>{saveBoard();exMenu.hide();}},
   {label:'Open board file',act:()=>{exMenu.hide();pickFile();}},
 ]);
@@ -1456,7 +1467,77 @@ function pageExport(pg){
   const W=cv.clientWidth*2,H=cv.clientHeight*2;
   return renderPageToCanvas(pg,{scale:view.scale*2,x:view.x*2,y:view.y*2},W,H);
 }
+
+// Returns the bounding box (in canvas/world coords) that covers the slide bg + all drawn objects
+function pageFullBounds(pg, baseW, baseH){
+  let minX=0, minY=0, maxX=baseW, maxY=baseH;
+  for(const o of pg.objs){
+    const b=bbox(o);
+    if(b){
+      minX=Math.min(minX, b.x);
+      minY=Math.min(minY, b.y);
+      maxX=Math.max(maxX, b.x+b.w);
+      maxY=Math.max(maxY, b.y+b.h);
+    }
+  }
+  return {minX, minY, maxX, maxY};
+}
+
+// Export page including any drawings that overflow the slide bounds
+function pageExportFull(pg){
+  const SCALE=2; // 2× for retina quality
+  let baseW, baseH, worldView;
+  if(pg.bg.type==='image'){
+    baseW=pg.bg.w; baseH=pg.bg.h;
+    worldView={scale:1,x:0,y:0};
+  } else {
+    baseW=cv.clientWidth; baseH=cv.clientHeight;
+    worldView={scale:view.scale,x:view.x,y:view.y};
+  }
+
+  // Compute world-space bounds of all objects
+  // Objects are stored in world coords; bg image is at (0,0,baseW,baseH) in world space
+  // For non-image pages we need to account for current view transform
+  let bounds;
+  if(pg.bg.type==='image'){
+    bounds = pageFullBounds(pg, baseW, baseH);
+  } else {
+    // World-space slide corners: (0,0) to (baseW/scale, baseH/scale) accounting for pan
+    const wsW = baseW / worldView.scale;
+    const wsH = baseH / worldView.scale;
+    const wsX0 = -worldView.x / worldView.scale;
+    const wsY0 = -worldView.y / worldView.scale;
+    bounds = pageFullBounds(pg, wsX0 + wsW, wsY0 + wsH);
+    bounds.minX = Math.min(bounds.minX, wsX0);
+    bounds.minY = Math.min(bounds.minY, wsY0);
+  }
+
+  const pad = 20; // px padding in world coords
+  const left  = bounds.minX - pad;
+  const top   = bounds.minY - pad;
+  const right = bounds.maxX + pad;
+  const bottom= bounds.maxY + pad;
+  const wW = right - left;
+  const wH = bottom - top;
+
+  let renderScale, offX, offY;
+  if(pg.bg.type==='image'){
+    renderScale = SCALE;
+    offX = -left * SCALE;
+    offY = -top * SCALE;
+  } else {
+    renderScale = worldView.scale * SCALE;
+    offX = worldView.x * SCALE - left * renderScale;
+    offY = worldView.y * SCALE - top * renderScale;
+  }
+
+  const W = Math.round(wW * renderScale);
+  const H = Math.round(wH * renderScale);
+  return renderPageToCanvas(pg, {scale:renderScale, x:offX, y:offY}, W, H);
+}
+
 function exportPNG(){const c=pageExport(page());c.toBlob(b=>download(b,`smartboard-page-${cur+1}.png`),'image/png');toast('Image saved');}
+function exportPNGFull(){const c=pageExportFull(page());c.toBlob(b=>download(b,`smartboard-page-${cur+1}-full.png`),'image/png');toast('Image saved (full content)');}
 async function exportPDF(){
   try{showLoad('Building PDF…');
     if(!window.jspdf)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -1468,6 +1549,20 @@ async function exportPDF(){
       pdf.addImage(c.toDataURL('image/jpeg',0.85),'JPEG',0,0,w,h);
     }
     pdf.save('smartboard.pdf');toast('PDF exported');
+  }catch(e){console.error(e);toast('PDF export failed');}
+  hideLoad();
+}
+async function exportPDFFull(){
+  try{showLoad('Building PDF (full content)…');
+    if(!window.jspdf)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const {jsPDF}=window.jspdf; let pdf=null;
+    for(let i=0;i<pages.length;i++){showLoad(`Adding page ${i+1} of ${pages.length}…`);
+      const c=pageExportFull(pages[i]); const w=c.width,h=c.height; const orient=w>=h?'l':'p';
+      if(!pdf)pdf=new jsPDF({orientation:orient,unit:'pt',format:[w,h]});
+      else pdf.addPage([w,h],orient);
+      pdf.addImage(c.toDataURL('image/jpeg',0.85),'JPEG',0,0,w,h);
+    }
+    pdf.save('smartboard-full.pdf');toast('PDF exported (full content)');
   }catch(e){console.error(e);toast('PDF export failed');}
   hideLoad();
 }
