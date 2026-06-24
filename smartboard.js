@@ -238,7 +238,7 @@ var MARKUP = `
         <button class="sb-lang-btn" data-lang="both" id="sb-welcome-lang-both" style="padding:5px 14px;border-radius:6px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;font-weight:600;font-size:13px;cursor:pointer;">EN + हि</button>
       </div>
       <input type="file" id="sb-welcome-file" accept=".pdf,.pptx,.json,.smartboard" class="sb-hidden">
-      <div id="sb-welcome-hint">Opens in full screen · press <b>Esc</b> to return here</div>
+      <div id="sb-welcome-hint">Click <b>Start EduBoard</b> or drop a file to begin</div>
     </div>
   </div>
 </div>
@@ -347,7 +347,11 @@ function boot(host){
     if(fixedH){ var v=fixedH; if(/^[0-9]+$/.test(v)) v=v+'px'; if(host.style.height!==v) host.style.height=v; return; }
     var w = host.clientWidth || (host.getBoundingClientRect&&host.getBoundingClientRect().width) || 0;
     if(!w) return;
-    var vh = window.innerHeight || 800;
+    // On mobile browsers, window.innerHeight includes the area behind the
+    // browser's own nav bar / address bar, making the board taller than what
+    // is actually visible and pushing the bottom dock off-screen.
+    // visualViewport.height returns only the *visible* portion and fixes this.
+    var vh = (window.visualViewport ? window.visualViewport.height : 0) || window.innerHeight || 800;
     var max = MAXH || Math.min(900, Math.round(vh*0.86));
     var hgt = Math.max(MINH, Math.min(max, Math.round(w/ASPECT)));
     var px = hgt+'px';
@@ -357,8 +361,10 @@ function boot(host){
   // keep height in sync as the column/viewport changes
   if(window.ResizeObserver){ try{ new ResizeObserver(function(){ applyHeight(); }).observe(host); }catch(_){ } }
   window.addEventListener('resize', applyHeight);
+  // visualViewport fires when the mobile browser chrome expands/collapses
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize', applyHeight); }
   // while the board is fullscreen, drop the inline height so it fills the screen; restore on exit
-  function onHostFS(){ if(isHostFS()){ host.style.height=''; } else { applyHeight(); } }
+  function onHostFS(){ if(isHostFS()){ host.style.height=''; host.style.setProperty('--sb-bottom-extra','0px'); } else { applyHeight(); host.style.removeProperty('--sb-bottom-extra'); } }
   document.addEventListener('fullscreenchange', onHostFS);
   document.addEventListener('webkitfullscreenchange', onHostFS);
   host.innerHTML = MARKUP;
@@ -956,7 +962,7 @@ function startWithFile(f){
   }
   $('#sb-welcome').classList.add('hide');
   try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
-  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+  setTimeout(resize,80);
   if(n.endsWith('.pdf')) importPDF(f); else importPPT(f);
 }
 // Welcome-screen-only quiz loader. Unlike the in-canvas "Open board file"
@@ -975,7 +981,7 @@ function startWithFile(f){
 function enterAndShowBoard(){
   $('#sb-welcome').classList.add('hide');
   try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
-  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+  setTimeout(resize,80);
 }
 function startWithQuizJSON(f){
   const r=new FileReader();
@@ -1233,8 +1239,8 @@ function nativeBrowse(inp){
 $('#sb-start').addEventListener('click',()=>{
   $('#sb-welcome').classList.add('hide');
   try{ fsEl.focus && fsEl.focus({preventScroll:true}); }catch(_){ try{ fsEl.focus && fsEl.focus(); }catch(__){} }
-  // Start directly in fullscreen; if the browser denies it, keep the board usable.
-  enterFS().then(()=>setTimeout(resize,80)).catch(()=>{ setTimeout(resize,80); });
+  // Always open in normal (windowed) mode.
+  setTimeout(resize,80);
 });
 
 /* ============================== board file open ============================== */
@@ -1910,14 +1916,6 @@ function showLoad(m){loadTxt.textContent=m||'Loading…';loadEl.classList.add('s
 function hideLoad(){loadEl.classList.remove('show');}
 
 /* ============================== toolbar hide/show (double-tap) ============================== */
-// Inject the "double-tap to restore" hint pill into the board app layer
-(function(){
-  const hintEl = document.createElement('div');
-  hintEl.id = 'sb-ui-hint';
-  hintEl.textContent = 'Double-tap canvas to show toolbars';
-  $('#sb-app').appendChild(hintEl);
-})();
-
 let uiHidden = false;
 
 function toggleUI(){
@@ -1925,7 +1923,6 @@ function toggleUI(){
   // Enable animation after first toggle so the initial render has no flash
   root.classList.add('sb-ui-anim-ready');
   root.classList.toggle('sb-ui-hidden', uiHidden);
-  toast(uiHidden ? 'Toolbars hidden — double-tap to restore' : 'Toolbars visible');
 }
 
 // --- Double-tap detection (zero-latency, retroactive cancel) ---
